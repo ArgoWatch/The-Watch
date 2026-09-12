@@ -38,7 +38,7 @@ Hobby project on the **ArgoWatch** GitHub account. Pages is enough: HTML/CSS/JS,
 
 On the repo: **Settings → Pages** → Deploy from a branch → `main` / **(root)**. Site:
 
-`https://argowatch.github.io/the-watch/`
+`https://argowatch.github.io/The-Watch/`
 
 `.nojekyll` is in the tree so Pages does not run Jekyll. Relative paths (`lib/`, `data/`) work on that URL.
 
