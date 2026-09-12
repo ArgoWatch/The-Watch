@@ -33,6 +33,7 @@
   const PRINT_IN = 4;
   const DETAIL_IN = 2;
   const MIN_SCALE = 8;
+  const MIN_DETAIL = 4;
   const MAX_SCALE = 40;
 
   const table = {
@@ -96,10 +97,11 @@
     return (inches * Math.hypot(sw, sh)) / diag;
   }
 
-  function scaleFor(want, cap) {
+  function scaleFor(want, cap, minScale) {
+    const lo = minScale == null ? MIN_SCALE : minScale;
     let scale = Math.round(want / CELL);
-    scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
-    while (scale * CELL > cap && scale > MIN_SCALE) scale -= 1;
+    scale = Math.max(lo, Math.min(MAX_SCALE, scale));
+    while (scale * CELL > cap && scale > lo) scale -= 1;
     return scale;
   }
 
@@ -117,18 +119,22 @@
     const reserveY = 220;
     const apart = salon.classList.contains("take-apart");
     const two = salon.classList.contains("has-trait");
-    const platesW = apart ? 200 : 0;
-    const gap = two ? 48 : 0;
+    const narrow = window.innerWidth < 720;
+    const platesW = apart ? (narrow ? 132 : 200) : 0;
+    const gap = two && !narrow ? 48 : 0;
     const want4 = cssPxForInches(PRINT_IN);
     const want2 = cssPxForInches(DETAIL_IN);
     const heightCap = window.innerHeight - reserveY;
-    const widthCap = window.innerWidth - 32 - platesW - gap;
-    const mainCap = Math.min(heightCap, two ? widthCap - want2 : widthCap);
+    const widthCap = window.innerWidth - 32 - (narrow ? 0 : platesW) - gap;
+    const mainCap = Math.min(heightCap, two && !narrow ? widthCap - want2 : widthCap);
     const mainScale = scaleFor(want4, mainCap);
     setScaleClass(stage, mainScale);
     if (traitStage) {
-      const left = widthCap - mainScale * CELL;
-      const detailScale = scaleFor(want2, Math.min(heightCap, Math.max(MIN_SCALE * CELL, left)));
+      const halfPx = Math.round(mainScale / 2) * CELL;
+      const isoCap = narrow
+        ? Math.max(MIN_DETAIL * CELL, window.innerWidth - 48 - platesW)
+        : Math.min(heightCap, Math.max(MIN_SCALE * CELL, widthCap - mainScale * CELL));
+      const detailScale = scaleFor(narrow ? halfPx : want2, isoCap, narrow ? MIN_DETAIL : MIN_SCALE);
       setScaleClass(traitStage, detailScale);
     }
   }

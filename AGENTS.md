@@ -21,13 +21,14 @@ Unofficial Argonauts player. Not affiliated with ACK or Muse Facktory.
 - Slots: 0 Palette, 1 Bones, 2 Cloak, 3 Relic, 4 Sight, 5 Artifact, 6 Crown
 - tokenURI may revert for unminted ids
 - traitsOf is meant to be frozen (TableFrozen). Renderer can change via setRenderer. Art is always live. The trait snapshot is not.
-- After ACK touches the table (or burned/fate-style extras appear), re-run `node scripts/fetch-traits.mjs`. `node scripts/check-traits.mjs` samples live traitsOf against the snapshot. The player also canaries the current id when Watch starts and when Take apart opens. Do not add a nightly Action that re-fetches 9,999 tokenURIs.
+- After ACK touches the table (or burned/fate-style extras appear), re-run `node scripts/fetch-traits.mjs`. `node scripts/check-traits.mjs` samples live traitsOf against the snapshot. The player also canaries the current id when Watch starts and when Take apart opens. SVG cache is keyed by renderer+id and expires after 5 minutes so Fate/burn art can change without setRenderer. Strip always fetches tokenURI fresh. Do not add a nightly Action that re-fetches 9,999 tokenURIs.
 
 ## Taste
 - Dark salon / parchment / hairline gold. Quiet. No rarity badges.
 - The work is the picture. Transport chrome is text-only and appears on hover (tap the plate on touch).
 - Wordmark: The Watch. **Play** toggles play / pause. **Strip** toggles explode / reassemble.
-- Isolation well is 2in square. None plates are not clickable.
+- Isolation well is 2in square on desktop (half the 4in plate). On narrow screens, isolation is half the assembled scale and sits to the right of the plate list. None plates are not clickable.
+- Touch devices keep playback controls visible (no hover).
 - Isolate occupancy on a **bare skeleton** (so covered smoke still belongs to the artifact). Recolor visible cells from the **tokenURI** print — `render(traits)` and `tokenURI` can disagree (Dragon's Breath tip is green in the print, blue in render). Covered cells keep the trait's own pixel. Palette = ground color. Bones and accessories on black. Print links to Harbor `/argonaut/{id}`.
 - **Draw** paints the current SVG rects in document order. Second press of Draw pauses; third resumes. **Reset** restarts the plot. **Play** in Draw mode leaves Draw and resumes the slideshow. **Sheet** sits after speed and downloads a night-mode 24×24 graph-paper PDF (white field only; site colors elsewhere).
 - Play wrap easter egg (only after a full 1→9999 play streak): “There is only serve the Muse”.

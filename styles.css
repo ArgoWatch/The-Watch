@@ -198,8 +198,43 @@ a.plate-harbor:hover {
 
 @media (max-width: 720px) {
   .salon.take-apart .stage-wrap {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: minmax(7.5rem, 1fr) auto;
+    column-gap: 0.9rem;
+    row-gap: 0.7rem;
+    justify-content: center;
+    align-items: start;
+    width: 100%;
+    max-width: 36rem;
+  }
+
+  .salon.take-apart #stage {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    justify-self: center;
+  }
+
+  .salon.take-apart .caption {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: center;
+  }
+
+  .salon.take-apart .plates {
+    grid-column: 1;
+    grid-row: 3;
+    min-width: 0;
+  }
+
+  .salon.take-apart.has-trait #trait-stage {
+    grid-column: 2;
+    grid-row: 3;
+    align-self: start;
+  }
+
+  .salon.take-apart .status,
+  .salon.take-apart .controls {
+    grid-column: 1 / -1;
   }
 }
 
@@ -219,7 +254,11 @@ a.plate-harbor:hover {
   image-rendering: crisp-edges;
 }
 
-/* Integer scales 8–40. JS picks the one nearest 4 physical inches. */
+/* Integer scales 4–40. Main plate ~4in; isolation half that. */
+.stage.scale-4 { width: 96px; height: 96px; } .scale-4 .pixel { transform: scale(4); }
+.stage.scale-5 { width: 120px; height: 120px; } .scale-5 .pixel { transform: scale(5); }
+.stage.scale-6 { width: 144px; height: 144px; } .scale-6 .pixel { transform: scale(6); }
+.stage.scale-7 { width: 168px; height: 168px; } .scale-7 .pixel { transform: scale(7); }
 .stage.scale-8 { width: 192px; height: 192px; } .scale-8 .pixel { transform: scale(8); }
 .stage.scale-9 { width: 216px; height: 216px; } .scale-9 .pixel { transform: scale(9); }
 .stage.scale-10 { width: 240px; height: 240px; } .scale-10 .pixel { transform: scale(10); }
@@ -319,6 +358,12 @@ a.plate-harbor:hover {
 .stage-wrap:focus-within .controls,
 .salon.chrome-on .controls {
   opacity: 1;
+}
+
+@media (hover: none) {
+  .controls {
+    opacity: 1;
+  }
 }
 
 button,
