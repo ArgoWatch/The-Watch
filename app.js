@@ -146,7 +146,7 @@
 
   function hideTraitWell() {
     salon.classList.remove("has-trait");
-    traitStage.classList.remove("is-paper");
+    traitStage.classList.remove("is-paper", "is-stamp");
     traitStage.hidden = true;
     traitPixel.replaceChildren();
     traitEmpty.hidden = true;
@@ -160,7 +160,9 @@
     }
     traitStage.hidden = false;
     salon.classList.add("has-trait");
-    traitStage.classList.toggle("is-paper", decode.wellIsPaper(row && row.slot, row && row.value, iso));
+    const stamp = row && String(row.slot || "").toLowerCase() === "stamp";
+    traitStage.classList.toggle("is-stamp", stamp);
+    traitStage.classList.toggle("is-paper", !stamp && decode.wellIsPaper(row && row.slot, row && row.value, iso));
     traitEmpty.hidden = true;
     try {
       traitPixel.replaceChildren(decode.sanitizeSvg(iso));

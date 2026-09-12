@@ -273,6 +273,11 @@ a.plate-harbor:hover {
   background: #f4efe6;
 }
 
+/* Mid well so faint black and faint white stamps both read. Paper hides white; black hides black. */
+.stage.trait-stage.is-stamp {
+  background: var(--muted);
+}
+
 .pixel {
   width: var(--cell);
   height: var(--cell);
