@@ -28,7 +28,7 @@ Unofficial Argonauts player. Not affiliated with ACK or Muse Facktory.
 - The work is the picture. Transport chrome is text-only and appears on hover (tap the plate on touch).
 - Wordmark: The Watch. **Play** toggles play / pause. **Strip** toggles explode / reassemble.
 - Isolation well is 2in square on desktop (half the 4in plate). On narrow screens, isolation is half the assembled scale and sits to the right of the plate list. None plates are not clickable.
-- Touch devices keep playback controls visible (no hover).
+- Touch: tap empty canvas to show transport chrome for 3s; interacting with a control resets the timer. Sheet sits under the mode row in Draw. Fate (and other non-slot extras except Print) are inert, like None.
 - Isolate occupancy on a **bare skeleton** (so covered smoke still belongs to the artifact). Recolor visible cells from the **tokenURI** print — `render(traits)` and `tokenURI` can disagree (Dragon's Breath tip is green in the print, blue in render). Covered cells keep the trait's own pixel. Palette = ground color. Bones and accessories on black. Print links to Harbor `/argonaut/{id}`.
 - **Draw** paints the current SVG rects in document order. Second press of Draw pauses; third resumes. **Reset** restarts the plot. **Play** in Draw mode leaves Draw and resumes the slideshow. **Sheet** sits after speed and downloads a night-mode 24×24 graph-paper PDF (white field only; site colors elsewhere).
 - Play wrap easter egg (only after a full 1→9999 play streak): “There is only serve the Muse”.

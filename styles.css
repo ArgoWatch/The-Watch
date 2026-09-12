@@ -124,13 +124,19 @@ body {
   justify-self: center;
 }
 
-.salon:not(.draw-mode) #btn-reset,
-.salon:not(.draw-mode) #btn-sheet {
+.salon:not(.draw-mode) #btn-reset {
   display: none;
 }
 
 #btn-sheet {
-  margin-left: 2.1rem;
+  display: none;
+  margin: 0.45rem 0 0;
+  font-size: 0.58rem;
+  letter-spacing: 0.22em;
+}
+
+.salon.draw-mode #btn-sheet {
+  display: inline-block;
 }
 
 .plates {
@@ -197,43 +203,60 @@ a.plate-harbor:hover {
 }
 
 @media (max-width: 720px) {
-  .salon.take-apart .stage-wrap {
+  .salon.take-apart .stage-wrap,
+  .salon.take-apart.has-trait .stage-wrap {
     display: grid;
-    grid-template-columns: minmax(7.5rem, 1fr) auto;
-    column-gap: 0.9rem;
-    row-gap: 0.7rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 0.7rem;
+    row-gap: 0.55rem;
     justify-content: center;
     align-items: start;
-    width: 100%;
-    max-width: 36rem;
+    width: var(--plate-px, 240px);
+    max-width: calc(100% - 1.5rem);
   }
 
-  .salon.take-apart #stage {
+  .salon.take-apart #stage,
+  .salon.take-apart.has-trait #stage {
     grid-column: 1 / -1;
     grid-row: 1;
     justify-self: center;
   }
 
-  .salon.take-apart .caption {
+  .salon.take-apart .caption,
+  .salon.take-apart.has-trait .caption {
     grid-column: 1 / -1;
     grid-row: 2;
     justify-self: center;
+    margin-bottom: 1.15rem;
   }
 
-  .salon.take-apart .plates {
+  .salon.take-apart .plates,
+  .salon.take-apart.has-trait .plates {
     grid-column: 1;
     grid-row: 3;
     min-width: 0;
+    justify-self: stretch;
+  }
+
+  .salon.take-apart .plate {
+    padding-left: 0.4rem;
+  }
+
+  .salon.take-apart .plate-value {
+    overflow-wrap: anywhere;
   }
 
   .salon.take-apart.has-trait #trait-stage {
     grid-column: 2;
     grid-row: 3;
+    justify-self: end;
     align-self: start;
   }
 
   .salon.take-apart .status,
-  .salon.take-apart .controls {
+  .salon.take-apart .controls,
+  .salon.take-apart.has-trait .status,
+  .salon.take-apart.has-trait .controls {
     grid-column: 1 / -1;
   }
 }
@@ -351,19 +374,21 @@ a.plate-harbor:hover {
   gap: 0.15rem 0.85rem;
   min-height: 1.6rem;
   opacity: 0;
+  pointer-events: none;
   transition: opacity 180ms ease;
 }
 
-.stage-wrap:hover .controls,
-.stage-wrap:focus-within .controls,
-.salon.chrome-on .controls {
-  opacity: 1;
+@media (hover: hover) {
+  .stage-wrap:hover .controls,
+  .stage-wrap:focus-within .controls {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
-@media (hover: none) {
-  .controls {
-    opacity: 1;
-  }
+.salon.chrome-on .controls {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 button,

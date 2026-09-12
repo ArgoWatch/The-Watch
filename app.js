@@ -129,6 +129,7 @@
     const mainCap = Math.min(heightCap, two && !narrow ? widthCap - want2 : widthCap);
     const mainScale = scaleFor(want4, mainCap);
     setScaleClass(stage, mainScale);
+    salon.style.setProperty("--plate-px", (mainScale * CELL + 2) + "px");
     if (traitStage) {
       const halfPx = Math.round(mainScale / 2) * CELL;
       const isoCap = narrow
@@ -470,13 +471,45 @@
     player.goto(n).catch(function () {});
   }
 
+  const touchChrome = window.matchMedia("(hover: none)").matches;
+  let chromeTimer = 0;
+
+  function showChrome() {
+    salon.classList.add("chrome-on");
+    window.clearTimeout(chromeTimer);
+    chromeTimer = window.setTimeout(function () {
+      if (document.activeElement === idInput) return;
+      salon.classList.remove("chrome-on");
+    }, 3000);
+  }
+
+  if (touchChrome) {
+    document.addEventListener("pointerdown", function (ev) {
+      const t = ev.target;
+      if (t.closest("button, a, input, label, .controls, .modes, .plate, #btn-sheet")) {
+        if (salon.classList.contains("chrome-on") || t.closest(".modes, #btn-sheet")) showChrome();
+        return;
+      }
+      showChrome();
+    });
+  }
+
   idInput.addEventListener("keydown", function (ev) {
     if (ev.key === "Enter") {
       ev.preventDefault();
       readIdBox();
     }
   });
-  idInput.addEventListener("blur", readIdBox);
+  idInput.addEventListener("focus", function () {
+    if (touchChrome) {
+      window.clearTimeout(chromeTimer);
+      salon.classList.add("chrome-on");
+    }
+  });
+  idInput.addEventListener("blur", function () {
+    readIdBox();
+    if (touchChrome) showChrome();
+  });
 
   document.addEventListener("keydown", function (ev) {
     if (ev.target === idInput) return;
@@ -524,12 +557,6 @@
       player.prev().catch(function () {});
     }
   });
-
-  if (window.matchMedia("(hover: none)").matches) {
-    stage.addEventListener("click", function () {
-      salon.classList.toggle("chrome-on");
-    });
-  }
 
   Promise.all([
     fetch("data/traits.bin").then(function (r) {
