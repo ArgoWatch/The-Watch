@@ -1,0 +1,12 @@
+.DS_Store
+node_modules/
+.env
+.env.*
+*.log
+.idea/
+.vscode/
+.verify/
+Screenshot*.png
+*.pre_access.bak
+data/checkpoint.json
+checkpoint.json

@@ -1,0 +1,11 @@
+{
+  "contract": "0x387C41B0B2F1128dE44dB1Bcf8baad085f26392C",
+  "block": 25956516,
+  "firstId": 1,
+  "lastId": 9999,
+  "slots": 7,
+  "count": 9999,
+  "bytes": 69993,
+  "requests": 25,
+  "fetchedAt": "2026-09-11T20:21:55.199Z"
+}

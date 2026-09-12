@@ -1,0 +1,32 @@
+{
+  "slots": [
+    {
+      "index": 0,
+      "name": "Palette"
+    },
+    {
+      "index": 1,
+      "name": "Bones"
+    },
+    {
+      "index": 2,
+      "name": "Cloak"
+    },
+    {
+      "index": 3,
+      "name": "Relic"
+    },
+    {
+      "index": 4,
+      "name": "Sight"
+    },
+    {
+      "index": 5,
+      "name": "Artifact"
+    },
+    {
+      "index": 6,
+      "name": "Crown"
+    }
+  ]
+}
