@@ -146,6 +146,7 @@
 
   function hideTraitWell() {
     salon.classList.remove("has-trait");
+    traitStage.classList.remove("is-paper");
     traitStage.hidden = true;
     traitPixel.replaceChildren();
     traitEmpty.hidden = true;
@@ -159,6 +160,7 @@
     }
     traitStage.hidden = false;
     salon.classList.add("has-trait");
+    traitStage.classList.toggle("is-paper", decode.needsPaperWell(iso));
     traitEmpty.hidden = true;
     try {
       traitPixel.replaceChildren(decode.sanitizeSvg(iso));

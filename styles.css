@@ -269,6 +269,10 @@ a.plate-harbor:hover {
   overflow: hidden;
 }
 
+.stage.trait-stage.is-paper {
+  background: #f4efe6;
+}
+
 .pixel {
   width: var(--cell);
   height: var(--cell);
