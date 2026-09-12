@@ -24,6 +24,10 @@
     syncToggle();
     setModeButtons();
   });
+  plotter.setOnPlayChange(function () {
+    syncToggle();
+    setModeButtons();
+  });
   const traitStage = document.getElementById("trait-stage");
   const traitPixel = document.getElementById("trait-pixel");
   const traitEmpty = document.getElementById("trait-empty");
