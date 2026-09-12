@@ -197,9 +197,11 @@
     modeWatch.setAttribute("aria-pressed", playing ? "true" : "false");
     modeApart.classList.toggle("is-on", mode === "apart");
     modeApart.setAttribute("aria-pressed", mode === "apart" ? "true" : "false");
+    const drawing = mode === "draw" && plotter.isPlaying();
+    modeDraw.textContent = drawing ? "Pause" : "Draw";
     modeDraw.classList.toggle("is-on", mode === "draw");
-    modeDraw.classList.toggle("is-playing", mode === "draw" && plotter.isPlaying());
-    modeDraw.setAttribute("aria-pressed", mode === "draw" && plotter.isPlaying() ? "true" : "false");
+    modeDraw.classList.toggle("is-playing", drawing);
+    modeDraw.setAttribute("aria-pressed", drawing ? "true" : "false");
   }
 
   function reassemble() {
