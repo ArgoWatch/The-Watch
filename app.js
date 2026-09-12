@@ -376,7 +376,7 @@
 
   const player = playback.createPlayback({
     id: 1,
-    rate: 1,
+    rate: 0.5,
     loadFrame: chain.loadFrame,
     prefetch: chain.prefetch,
     onFrame: paint,

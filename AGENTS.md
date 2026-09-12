@@ -32,7 +32,8 @@ Unofficial Argonauts player. Not affiliated with ACK or Muse Facktory.
 - **Draw** paints the current SVG rects in document order. Second press of Draw pauses; third resumes. **Reset** restarts the plot. **Play** in Draw mode leaves Draw and resumes the slideshow. **Sheet** sits after speed and downloads a night-mode 24×24 graph-paper PDF (white field only; site colors elsewhere).
 - Play wrap easter egg (only after a full 1→9999 play streak): “There is only serve the Muse”.
 - Plates are clickable to highlight. The assembled work stays whole on the left.
-- Watch speed is 0.5× / 1× / 2×. 2× is the cap. 1× = one id per second. Prev, Next, and typing an id pause the slideshow until Play.
+- Watch speed is 0.5× / 1× / 2×. Default is 0.5×. 2× is the cap. 1× = one id per second. Prev, Next, and typing an id pause the slideshow until Play.
+- `main` is production (GitHub Pages). `staging` is for upgrades; merge to `main` to ship.
 - Explode = museum plate list, not particles. SVG is flat rects — do not fake per-layer isolation.
 
 ## Security
