@@ -36,7 +36,7 @@ This is a static site. It sends `eth_call` to public Ethereum RPCs (token id + c
 
 Hobby project on the **ArgoWatch** GitHub account. Pages is enough: HTML/CSS/JS, no backend, no build step. Free Pages needs a public repo.
 
-`main` is the public site. `staging` is for upgrades; merge it into `main` to ship. GitHub Actions deploys Pages from `main`. Site:
+`main` is the public site. `staging` is for upgrades; merge it into `main` to ship. Pages is served from `main`. Site:
 
 `https://argowatch.github.io/The-Watch/`
 
