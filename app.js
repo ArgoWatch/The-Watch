@@ -152,7 +152,7 @@
     traitEmpty.hidden = true;
   }
 
-  function showTraitWell(iso) {
+  function showTraitWell(iso, row) {
     if (!iso || iso === "harbor" || iso === "none") {
       hideTraitWell();
       fitPrint();
@@ -160,7 +160,7 @@
     }
     traitStage.hidden = false;
     salon.classList.add("has-trait");
-    traitStage.classList.toggle("is-paper", decode.needsPaperWell(iso));
+    traitStage.classList.toggle("is-paper", decode.wellIsPaper(row && row.slot, row && row.value, iso));
     traitEmpty.hidden = true;
     try {
       traitPixel.replaceChildren(decode.sanitizeSvg(iso));
@@ -444,9 +444,9 @@
     player.next().catch(function () {});
   });
 
-  plates.setOnSelect(function (_i, iso) {
+  plates.setOnSelect(function (_i, iso, row) {
     if (mode !== "apart") return;
-    showTraitWell(iso);
+    showTraitWell(iso, row);
   });
 
   modeWatch.addEventListener("click", onWatchClick);
