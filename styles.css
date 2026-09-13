@@ -488,3 +488,13 @@ button.is-on {
 .foot a:hover {
   color: var(--gold);
 }
+
+.colophon {
+  margin: 0.35rem 0 0;
+  min-height: 1em;
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.22em;
+  color: var(--gold-dim);
+  opacity: 0.45;
+}

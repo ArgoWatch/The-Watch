@@ -60,6 +60,45 @@
     return String(n).padStart(4, "0");
   }
 
+  function parseDeepId() {
+    const q = new URLSearchParams(location.search).get("id");
+    if (q && /^\d{1,4}$/.test(q)) {
+      const n = Number(q);
+      if (n >= 1 && n <= 9999) return n;
+    }
+    const h = String(location.hash || "").replace(/^#/, "");
+    const m = /^(?:id=)?(\d{1,4})$/.exec(h);
+    if (m) {
+      const n = Number(m[1]);
+      if (n >= 1 && n <= 9999) return n;
+    }
+    return 1;
+  }
+
+  function syncUrl(id) {
+    const n = Number(id);
+    if (!Number.isInteger(n) || n < 1 || n > 9999) return;
+    const url = new URL(location.href);
+    url.searchParams.set("id", String(n));
+    url.hash = "";
+    const next = url.pathname + url.search;
+    if (next === location.pathname + location.search && !location.hash) return;
+    history.replaceState({ id: n }, "", next);
+  }
+
+  function syncColophon(addr) {
+    const el = document.getElementById("renderer-mark");
+    if (!el) return;
+    const hex = String(addr || "").replace(/^0x/i, "").toLowerCase();
+    if (hex.length < 6) {
+      el.textContent = "";
+      el.removeAttribute("title");
+      return;
+    }
+    el.textContent = hex.slice(-6);
+    el.title = "0x" + hex;
+  }
+
   function assumedDiagonalInches(sw, sh) {
     const laptop = typeof navigator.getBattery === "function";
     const key = sw + "x" + sh;
@@ -479,6 +518,8 @@
     }
     lastFrame = frame;
     setCaption(frame.id);
+    syncUrl(frame.id);
+    syncColophon(frame.renderer);
     if (mode === "draw") {
       plotter.load(frame.unminted ? "" : frame.svg || "");
       plotter.play();
@@ -497,7 +538,7 @@
   }
 
   const player = playback.createPlayback({
-    id: 1,
+    id: parseDeepId(),
     rate: 0.5,
     loadFrame: chain.loadFrame,
     prefetch: chain.prefetch,
@@ -705,6 +746,15 @@
     }
   }).catch(function () {
     status.textContent = "trait snapshot missing — run node scripts/fetch-traits.mjs";
+  });
+
+  window.addEventListener("hashchange", function () {
+    const n = parseDeepId();
+    if (n !== player.getId()) player.goto(n).catch(function () {});
+  });
+  window.addEventListener("popstate", function () {
+    const n = parseDeepId();
+    if (n !== player.getId()) player.goto(n).catch(function () {});
   });
 
   fitPrint();
