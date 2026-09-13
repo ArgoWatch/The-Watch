@@ -787,10 +787,13 @@
 
   pixel.addEventListener("pointermove", function (ev) {
     if (player.isPlaying() || mode !== "watch") return;
-    setTwinHot(!!twinCellAt(ev));
+    const hit = !!twinCellAt(ev);
+    setTwinHot(hit);
+    pixel.style.cursor = hit ? "pointer" : "";
   });
   pixel.addEventListener("pointerleave", function () {
     setTwinHot(false);
+    pixel.style.cursor = "";
     window.clearTimeout(twinPress);
     twinPress = 0;
   });
@@ -806,6 +809,14 @@
   pixel.addEventListener("pointerup", function () {
     window.clearTimeout(twinPress);
     twinPress = 0;
+  });
+  pixel.addEventListener("click", function (ev) {
+    if (player.isPlaying() || mode !== "watch") return;
+    if (!twinCellAt(ev) || !lastFrame) return;
+    const twin = twinOf(lastFrame.id);
+    if (!twin) return;
+    ev.preventDefault();
+    goTwin(twin);
   });
 
   const touchChrome = window.matchMedia("(hover: none)").matches;
