@@ -1,6 +1,6 @@
 (function () {
   "use strict";
-  const { chain, decode, playback, explode, draw, sheet } = window.TheScore;
+  const { chain, decode, playback, explode, draw, sheet, family } = window.TheScore;
 
   const salon = document.querySelector(".salon");
   const stage = document.getElementById("stage");
@@ -61,6 +61,15 @@
   let twinSeq = 0;
   let twinInvite = false;
   let twinPress = 0;
+  let films = Object.create(null);
+  let filmSeq = 0;
+  let filmPlaying = false;
+  let filmTimer = 0;
+  const FILM_FRAME_MS = 550;
+  const FILM_STEM_MS = 1200;
+  const FILM_CODA_MS = 1100;
+  const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   function pad4(n) {
     return String(n).padStart(4, "0");
@@ -297,6 +306,7 @@
     }, plates.duration);
     mode = "watch";
     setModeButtons();
+    syncStemClass();
   }
 
   let stampTimer = 0;
@@ -473,6 +483,118 @@
     proof.classList.toggle("is-hot", !!on);
   }
 
+  function stemFilmOf(id) {
+    const film = films[Number(id)];
+    return film && film.ids && film.ids.length > 1 ? film : null;
+  }
+
+  function syncStemClass() {
+    const on =
+      mode === "watch" &&
+      !filmPlaying &&
+      !(player && player.isPlaying()) &&
+      lastFrame &&
+      !lastFrame.unminted &&
+      !decode.frameIsFate(lastFrame) &&
+      !!stemFilmOf(lastFrame.id);
+    stage.classList.toggle("is-stem", on);
+    if (!on) stage.classList.remove("is-invite", "is-ready");
+  }
+
+  function inviteStem() {
+    if (!stage.classList.contains("is-stem") || filmPlaying) return;
+    if (reduceMotion.matches) {
+      stage.classList.add("is-ready");
+      return;
+    }
+    stage.classList.remove("is-ready", "is-invite");
+    void stage.offsetWidth;
+    stage.classList.add("is-invite");
+  }
+
+  function abortFilm() {
+    filmSeq += 1;
+    filmPlaying = false;
+    window.clearTimeout(filmTimer);
+    filmTimer = 0;
+    stage.classList.remove("is-film");
+  }
+
+  function stopFilm() {
+    const was = filmPlaying;
+    abortFilm();
+    if (was && lastFrame) mountArt(lastFrame);
+    syncStemClass();
+    if (stage.classList.contains("is-stem") && stage.matches(":hover")) inviteStem();
+  }
+
+  function filmWait(ms, seq) {
+    return new Promise(function (resolve) {
+      window.clearTimeout(filmTimer);
+      filmTimer = window.setTimeout(function () {
+        filmTimer = 0;
+        resolve(seq === filmSeq);
+      }, ms);
+    });
+  }
+
+  function paintFilmFrame(frame) {
+    clearStampLamp();
+    clearTwinProof();
+    if (!frame || frame.unminted || frame.error) return false;
+    if (decode.frameIsFate(frame)) return false;
+    if (frame.kind === "gif" || frame.kind === "raster") return false;
+    if (!frame.svg) return false;
+    try {
+      pixel.replaceChildren(decode.sanitizeSvg(frame.svg));
+      unmintedEl.hidden = true;
+      stage.classList.remove("is-empty");
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async function startFilm(stemId) {
+    const film = stemFilmOf(stemId);
+    if (!film) return;
+    if (mode !== "watch" || (player && player.isPlaying())) return;
+
+    filmSeq += 1;
+    const seq = filmSeq;
+    window.clearTimeout(filmTimer);
+    filmPlaying = true;
+    stage.classList.add("is-film");
+    stage.classList.remove("is-invite", "is-ready", "is-stem");
+    chain.prefetch(film.ids);
+
+    if (lastFrame && lastFrame.svg) paintFilmFrame(lastFrame);
+    if (!(await filmWait(FILM_STEM_MS, seq))) return;
+
+    for (let i = 1; i < film.ids.length; i++) {
+      if (seq !== filmSeq) return;
+      try {
+        const frame = await chain.loadFrame(film.ids[i]);
+        if (seq !== filmSeq) return;
+        if (!paintFilmFrame(frame)) continue;
+      } catch (_) {
+        continue;
+      }
+      const last = i === film.ids.length - 1;
+      if (!(await filmWait(last ? FILM_CODA_MS : FILM_FRAME_MS, seq))) return;
+    }
+
+    if (seq !== filmSeq) return;
+    try {
+      const home = await chain.loadFrame(film.ids[0]);
+      if (seq !== filmSeq) return;
+      paintFilmFrame(home);
+    } catch (_) {}
+    if (!(await filmWait(FILM_STEM_MS, seq))) return;
+    if (seq !== filmSeq) return;
+    stopFilm();
+  }
+
   function mountArt(frame) {
     clearStampLamp();
     if (!frame || frame.unminted) {
@@ -523,10 +645,12 @@
     mode = "watch";
     restoreSvg();
     setModeButtons();
+    syncStemClass();
   }
 
   function enterDraw() {
     if (lastFrame && (lastFrame.kind === "gif" || lastFrame.kind === "raster")) return;
+    if (filmPlaying) stopFilm();
     player.pause();
     if (mode === "apart") {
       hideTraitWell();
@@ -535,6 +659,7 @@
     }
     mode = "draw";
     salon.classList.add("draw-mode");
+    syncStemClass();
     fitPrint();
     pixel.replaceChildren(plotter.canvas);
     unmintedEl.hidden = true;
@@ -557,6 +682,7 @@
       setModeButtons();
       return;
     }
+    if (filmPlaying) stopFilm();
     player.toggle();
     syncToggle();
     setModeButtons();
@@ -585,6 +711,7 @@
   }
 
   function enterApart() {
+    if (filmPlaying) stopFilm();
     if (mode === "draw") {
       stopDraw();
       restoreSvg();
@@ -594,6 +721,7 @@
     mode = "apart";
     salon.classList.add("take-apart");
     setModeButtons();
+    syncStemClass();
     fitPrint();
     refreshPlates();
     window.requestAnimationFrame(function () {
@@ -633,6 +761,7 @@
   }
 
   function paint(frame) {
+    if (filmPlaying) abortFilm();
     veil.hidden = !frame.pending;
     if (frame.pending) {
       clearStampLamp();
@@ -645,6 +774,7 @@
     if (mode === "draw") {
       plotter.load(frame.unminted ? "" : frame.svg || "");
       plotter.play();
+      syncStemClass();
       return;
     }
     if (mode === "apart") {
@@ -653,10 +783,12 @@
     }
 
     if (frame.error) {
+      syncStemClass();
       return;
     }
 
     mountArt(frame);
+    syncStemClass();
   }
 
   const player = playback.createPlayback({
@@ -668,8 +800,10 @@
       return decode.frameIsFate(frame) ? 800 : 0;
     },
     onPlayChange: function (on) {
+      if (on && filmPlaying) abortFilm();
       syncToggle();
       setModeButtons();
+      syncStemClass();
       if (!on) {
         clearStampLamp();
         if (lastFrame) bindTwinProof(lastFrame);
@@ -692,13 +826,10 @@
         if (status.textContent === "There is only serve the Muse") status.textContent = "";
       }, 8000);
     },
-    onPlayChange: function () {
-      syncToggle();
-      setModeButtons();
-    },
   });
 
   toggleBtn.addEventListener("click", function () {
+    if (filmPlaying) stopFilm();
     if (mode === "draw") {
       leaveDraw();
       player.play();
@@ -724,9 +855,11 @@
     }
   });
   prevBtn.addEventListener("click", function () {
+    if (filmPlaying) stopFilm();
     player.prev().catch(function () {});
   });
   nextBtn.addEventListener("click", function () {
+    if (filmPlaying) stopFilm();
     player.next().catch(function () {});
   });
 
@@ -769,10 +902,9 @@
     const btn = document.getElementById("renderer-colophon");
     if (!btn) return;
     let fadeTimer = 0;
-    const fine = window.matchMedia("(hover: hover) and (pointer: fine)");
     btn.addEventListener("click", function (ev) {
       ev.preventDefault();
-      if (fine.matches) return;
+      if (finePointer.matches) return;
       btn.classList.remove("is-fade");
       btn.classList.add("is-open");
       window.clearTimeout(fadeTimer);
@@ -786,7 +918,7 @@
   })();
 
   pixel.addEventListener("pointermove", function (ev) {
-    if (player.isPlaying() || mode !== "watch") return;
+    if (player.isPlaying() || filmPlaying || mode !== "watch") return;
     const hit = !!twinCellAt(ev);
     setTwinHot(hit);
     pixel.style.cursor = hit ? "pointer" : "";
@@ -798,7 +930,7 @@
     twinPress = 0;
   });
   pixel.addEventListener("pointerdown", function (ev) {
-    if (player.isPlaying() || mode !== "watch") return;
+    if (player.isPlaying() || filmPlaying || mode !== "watch") return;
     if (!twinCellAt(ev)) return;
     window.clearTimeout(twinPress);
     twinPress = window.setTimeout(function () {
@@ -812,11 +944,40 @@
   });
   pixel.addEventListener("click", function (ev) {
     if (player.isPlaying() || mode !== "watch") return;
-    if (!twinCellAt(ev) || !lastFrame) return;
-    const twin = twinOf(lastFrame.id);
-    if (!twin) return;
-    ev.preventDefault();
-    goTwin(twin);
+    if (filmPlaying) {
+      ev.preventDefault();
+      stopFilm();
+      return;
+    }
+    if (twinCellAt(ev) && lastFrame) {
+      const twin = twinOf(lastFrame.id);
+      if (twin) {
+        ev.preventDefault();
+        goTwin(twin);
+        return;
+      }
+    }
+    if (lastFrame && stemFilmOf(lastFrame.id)) {
+      ev.preventDefault();
+      startFilm(lastFrame.id);
+    }
+  });
+
+  stage.addEventListener("pointerenter", function () {
+    if (!stage.classList.contains("is-stem") || filmPlaying) return;
+    const film = lastFrame && stemFilmOf(lastFrame.id);
+    if (film) chain.prefetch(film.ids.slice(0, 8));
+    inviteStem();
+  });
+  stage.addEventListener("pointerleave", function (ev) {
+    stage.classList.remove("is-invite", "is-ready");
+    if (filmPlaying && ev.pointerType !== "touch") stopFilm();
+  });
+  stage.addEventListener("animationend", function (ev) {
+    if (ev.animationName !== "stem-edge") return;
+    if (stage.classList.contains("is-stem") && !filmPlaying) {
+      stage.classList.add("is-ready");
+    }
   });
 
   const touchChrome = window.matchMedia("(hover: none)").matches;
@@ -873,6 +1034,10 @@
     }
     if (ev.key === "Escape") {
       ev.preventDefault();
+      if (filmPlaying) {
+        stopFilm();
+        return;
+      }
       if (mode === "draw") leaveDraw();
       else reassemble();
       return;
@@ -885,6 +1050,10 @@
     }
     if (ev.key === " " || ev.code === "Space") {
       ev.preventDefault();
+      if (filmPlaying) {
+        stopFilm();
+        return;
+      }
       if (mode === "apart") {
         reassemble();
         return;
@@ -899,9 +1068,11 @@
       setModeButtons();
     } else if (ev.key === "ArrowRight") {
       ev.preventDefault();
+      if (filmPlaying) stopFilm();
       player.next().catch(function () {});
     } else if (ev.key === "ArrowLeft") {
       ev.preventDefault();
+      if (filmPlaying) stopFilm();
       player.prev().catch(function () {});
     }
   });
@@ -917,6 +1088,7 @@
     }),
   ]).then(function (pair) {
     table.bytes = new Uint8Array(pair[0]);
+    films = family && family.build ? family.build(table.bytes) : Object.create(null);
     twins = (function (bytes) {
       const map = Object.create(null);
       const kind = Object.create(null);
@@ -955,6 +1127,8 @@
     if (lastFrame && lastFrame.id) {
       setCaption(lastFrame.id);
       if (mode === "watch" && !player.isPlaying()) bindTwinProof(lastFrame);
+      syncStemClass();
+      if (stage.classList.contains("is-stem") && stage.matches(":hover")) inviteStem();
     }
     if (pair[1] && Array.isArray(pair[1].slots)) {
       table.slots = pair[1].slots.map(function (s) {
