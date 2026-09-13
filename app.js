@@ -64,10 +64,13 @@
   let films = Object.create(null);
   let filmSeq = 0;
   let filmPlaying = false;
+  let filmLive = false;
+  let filmStartedAt = 0;
   let filmTimer = 0;
-  const FILM_FRAME_MS = 550;
-  const FILM_STEM_MS = 1200;
-  const FILM_CODA_MS = 1100;
+  const FILM_FRAME_MS = 800;
+  const FILM_STEM_MS = 1100;
+  const FILM_CODA_MS = 1600;
+  const FILM_CLICK_GRACE_MS = 800;
   const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
@@ -503,11 +506,12 @@
 
   function inviteStem() {
     if (!stage.classList.contains("is-stem") || filmPlaying) return;
+    stage.classList.add("is-ready");
     if (reduceMotion.matches) {
-      stage.classList.add("is-ready");
+      stage.classList.add("is-invite");
       return;
     }
-    stage.classList.remove("is-ready", "is-invite");
+    stage.classList.remove("is-invite");
     void stage.offsetWidth;
     stage.classList.add("is-invite");
   }
@@ -515,9 +519,15 @@
   function abortFilm() {
     filmSeq += 1;
     filmPlaying = false;
+    filmLive = false;
+    filmStartedAt = 0;
     window.clearTimeout(filmTimer);
     filmTimer = 0;
     stage.classList.remove("is-film");
+  }
+
+  function filmCanStop() {
+    return filmPlaying && filmLive && performance.now() - filmStartedAt >= FILM_CLICK_GRACE_MS;
   }
 
   function stopFilm() {
@@ -564,12 +574,11 @@
     const seq = filmSeq;
     window.clearTimeout(filmTimer);
     filmPlaying = true;
+    filmLive = false;
+    filmStartedAt = performance.now();
     stage.classList.add("is-film");
     stage.classList.remove("is-invite", "is-ready", "is-stem");
     chain.prefetch(film.ids);
-
-    if (lastFrame && lastFrame.svg) paintFilmFrame(lastFrame);
-    if (!(await filmWait(FILM_STEM_MS, seq))) return;
 
     for (let i = 1; i < film.ids.length; i++) {
       if (seq !== filmSeq) return;
@@ -577,6 +586,7 @@
         const frame = await chain.loadFrame(film.ids[i]);
         if (seq !== filmSeq) return;
         if (!paintFilmFrame(frame)) continue;
+        filmLive = true;
       } catch (_) {
         continue;
       }
@@ -946,7 +956,7 @@
     if (player.isPlaying() || mode !== "watch") return;
     if (filmPlaying) {
       ev.preventDefault();
-      stopFilm();
+      if (filmCanStop()) stopFilm();
       return;
     }
     if (twinCellAt(ev) && lastFrame) {
@@ -966,12 +976,12 @@
   stage.addEventListener("pointerenter", function () {
     if (!stage.classList.contains("is-stem") || filmPlaying) return;
     const film = lastFrame && stemFilmOf(lastFrame.id);
-    if (film) chain.prefetch(film.ids.slice(0, 8));
+    if (film) chain.prefetch(film.ids);
     inviteStem();
   });
   stage.addEventListener("pointerleave", function (ev) {
     stage.classList.remove("is-invite", "is-ready");
-    if (filmPlaying && ev.pointerType !== "touch") stopFilm();
+    if (filmCanStop() && ev.pointerType !== "touch") stopFilm();
   });
   stage.addEventListener("animationend", function (ev) {
     if (ev.animationName !== "stem-edge") return;
