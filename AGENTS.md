@@ -35,7 +35,7 @@ Unofficial Argonauts player. Not affiliated with ACK or Muse Facktory.
 - Plates are clickable to highlight. The assembled work stays whole on the left.
 - Watch speed is 0.5× / 1× / 2×. Default is 0.5×. 2× is the cap. 0.5× still beat is ~2.8s (1s rest, fade stamps in, hold, fade back). Fate/Burned adds ~0.8s. GIF `tokenURI` images mount as `<img>`. On-chain SMIL (`animate` on rects) is kept. Burned `tokenURI.image` is still SVG with no `<animate>` (#7135, 2026-09-12); OpenSea `animation_url` has the fire SMIL — do not fetch that CDN. No fate caption in Play.
 - Deep link: `?id=7135` or `#7135`. replaceState as the id changes so a copied URL is the current frame.
-- Renderer last-6 sits in the footer colophon (not Strip). `renderer()` is re-read each frame so setRenderer shows on the next picture, no modal.
+- Renderer last-6 sits in the footer colophon (not Strip). Hover (or a 3s tap on touch) expands to `renderer(0x…)`. `renderer()` is re-read each frame so setRenderer shows on the next picture, no modal.
 - `main` is production (GitHub Pages). `staging` is for upgrades; merge to `main` to ship.
 - Explode = museum plate list, not particles. SVG is flat rects — do not fake per-layer isolation.
 

@@ -87,16 +87,21 @@
   }
 
   function syncColophon(addr) {
-    const el = document.getElementById("renderer-mark");
-    if (!el) return;
+    const shortEl = document.getElementById("renderer-mark");
+    const fullEl = document.getElementById("renderer-full");
+    const btn = document.getElementById("renderer-colophon");
+    if (!shortEl || !fullEl) return;
     const hex = String(addr || "").replace(/^0x/i, "").toLowerCase();
     if (hex.length < 6) {
-      el.textContent = "";
-      el.removeAttribute("title");
+      shortEl.textContent = "";
+      fullEl.textContent = "";
+      if (btn) btn.setAttribute("aria-label", "Renderer");
       return;
     }
-    el.textContent = hex.slice(-6);
-    el.title = "0x" + hex;
+    const full = "0x" + hex;
+    shortEl.textContent = hex.slice(-6);
+    fullEl.textContent = "renderer(" + full + ")";
+    if (btn) btn.setAttribute("aria-label", "renderer(" + full + ")");
   }
 
   function assumedDiagonalInches(sw, sh) {
@@ -640,6 +645,26 @@
     idInput.value = String(n);
     player.goto(n).catch(function () {});
   }
+
+  (function () {
+    const btn = document.getElementById("renderer-colophon");
+    if (!btn) return;
+    let fadeTimer = 0;
+    const fine = window.matchMedia("(hover: hover) and (pointer: fine)");
+    btn.addEventListener("click", function (ev) {
+      ev.preventDefault();
+      if (fine.matches) return;
+      btn.classList.remove("is-fade");
+      btn.classList.add("is-open");
+      window.clearTimeout(fadeTimer);
+      fadeTimer = window.setTimeout(function () {
+        btn.classList.add("is-fade");
+        fadeTimer = window.setTimeout(function () {
+          btn.classList.remove("is-open", "is-fade");
+        }, 500);
+      }, 3000);
+    });
+  })();
 
   const touchChrome = window.matchMedia("(hover: none)").matches;
   let chromeTimer = 0;

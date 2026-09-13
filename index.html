@@ -7,7 +7,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'none'; connect-src 'self' https://cloudflare-eth.com https://ethereum.publicnode.com https://ethereum-rpc.publicnode.com https://1rpc.io https://rpc.mevblocker.io https://eth.drpc.org https://rpc.flashbots.net; base-uri 'none'; form-action 'none'; object-src 'none'" />
   <title>The Watch — unofficial Argonauts player</title>
   <meta name="description" content="Unofficial fan player for on-chain Argonauts. Art and copyright stay with ACK / Muse Facktory." />
-  <link rel="stylesheet" href="styles.css?v=12" />
+  <link rel="stylesheet" href="styles.css?v=13" />
 </head>
 <body>
   <div class="salon">
@@ -55,16 +55,19 @@
     <footer class="foot">
       Unofficial fan player. Art and copyright stay with ACK / Muse Facktory.
       <a href="https://argonauts.musefacktory.com" rel="noopener noreferrer">Harbor</a>
-      <p class="colophon"><span id="renderer-mark"></span></p>
+      <button type="button" class="colophon" id="renderer-colophon" aria-label="Renderer">
+        <span class="colophon-short" id="renderer-mark"></span>
+        <span class="colophon-full" id="renderer-full"></span>
+      </button>
     </footer>
   </div>
 
-  <script src="lib/chain.js?v=12"></script>
-  <script src="lib/decode.js?v=12"></script>
-  <script src="lib/playback.js?v=12"></script>
-  <script src="lib/explode.js?v=12"></script>
-  <script src="lib/draw.js?v=12"></script>
-  <script src="lib/sheet.js?v=12"></script>
-  <script src="app.js?v=12"></script>
+  <script src="lib/chain.js?v=13"></script>
+  <script src="lib/decode.js?v=13"></script>
+  <script src="lib/playback.js?v=13"></script>
+  <script src="lib/explode.js?v=13"></script>
+  <script src="lib/draw.js?v=13"></script>
+  <script src="lib/sheet.js?v=13"></script>
+  <script src="app.js?v=13"></script>
 </body>
 </html>
