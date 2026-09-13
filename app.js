@@ -530,6 +530,19 @@
     return filmPlaying && filmLive && performance.now() - filmStartedAt >= FILM_CLICK_GRACE_MS;
   }
 
+  function pointerInStage(ev) {
+    const r = stage.getBoundingClientRect();
+    return ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom;
+  }
+
+  function stopFilmIfPointerLeft(ev) {
+    if (!filmPlaying) return;
+    if (ev && ev.pointerType === "touch") return;
+    if (performance.now() - filmStartedAt < 120) return;
+    if (ev && pointerInStage(ev)) return;
+    stopFilm();
+  }
+
   function stopFilm() {
     const was = filmPlaying;
     abortFilm();
@@ -952,7 +965,18 @@
     window.clearTimeout(twinPress);
     twinPress = 0;
   });
-  pixel.addEventListener("click", function (ev) {
+  function onPlatePointerDown(ev) {
+    if (ev.button !== 0) return;
+    if (player.isPlaying() || mode !== "watch") return;
+    if (filmPlaying) return;
+    if (twinCellAt(ev)) return;
+    if (lastFrame && stemFilmOf(lastFrame.id)) {
+      ev.preventDefault();
+      startFilm(lastFrame.id);
+    }
+  }
+
+  function onPlateClick(ev) {
     if (player.isPlaying() || mode !== "watch") return;
     if (filmPlaying) {
       ev.preventDefault();
@@ -971,7 +995,14 @@
       ev.preventDefault();
       startFilm(lastFrame.id);
     }
+  }
+
+  pixel.addEventListener("click", onPlateClick);
+  stage.addEventListener("click", function (ev) {
+    if (ev.target === pixel || pixel.contains(ev.target)) return;
+    onPlateClick(ev);
   });
+  stage.addEventListener("pointerdown", onPlatePointerDown);
 
   stage.addEventListener("pointerenter", function () {
     if (!stage.classList.contains("is-stem") || filmPlaying) return;
@@ -981,8 +1012,12 @@
   });
   stage.addEventListener("pointerleave", function (ev) {
     stage.classList.remove("is-invite", "is-ready");
-    if (filmCanStop() && ev.pointerType !== "touch") stopFilm();
+    stopFilmIfPointerLeft(ev);
   });
+  document.addEventListener("pointermove", function (ev) {
+    if (!filmPlaying) return;
+    stopFilmIfPointerLeft(ev);
+  }, { passive: true });
   stage.addEventListener("animationend", function (ev) {
     if (ev.animationName !== "stem-edge") return;
     if (stage.classList.contains("is-stem") && !filmPlaying) {
