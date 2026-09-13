@@ -56,6 +56,7 @@
   let lastFrame = { id: 1, attributes: [], unminted: true };
   let canaryId = 0;
   let twins = Object.create(null);
+  let twinKind = Object.create(null);
   let twinCells = null;
   let twinSeq = 0;
   let twinInvite = false;
@@ -431,6 +432,7 @@
     if (decode.frameIsFate(frame)) return;
     const twin = twins[frame.id];
     if (!twin) return;
+    if (twinKind[frame.id] !== "relic") return;
     const traits = table.row(frame.id);
     if (!traits || !explode.relicCells) return;
     const seq = ++twinSeq;
@@ -906,23 +908,36 @@
     table.bytes = new Uint8Array(pair[0]);
     twins = (function (bytes) {
       const map = Object.create(null);
-      const groups = Object.create(null);
-      for (let id = 1; id <= 9999; id++) {
-        const i = (id - 1) * 7;
-        if (i + 6 >= bytes.length) break;
-        const key = bytes[i] + "," + bytes[i + 1] + "," + bytes[i + 2] + "," + bytes[i + 4] + "," + bytes[i + 5] + "," + bytes[i + 6];
-        if (!groups[key]) groups[key] = [];
-        groups[key].push(id);
+      const kind = Object.create(null);
+      function pairSlot(slot, allowed, tag) {
+        const groups = Object.create(null);
+        for (let id = 1; id <= 9999; id++) {
+          const i = (id - 1) * 7;
+          if (i + 6 >= bytes.length) break;
+          if (allowed && allowed.indexOf(bytes[i + slot]) === -1) continue;
+          const parts = [];
+          for (let k = 0; k < 7; k++) if (k !== slot) parts.push(bytes[i + k]);
+          const key = parts.join(",");
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(id);
+        }
+        Object.keys(groups).forEach(function (k) {
+          const g = groups[k];
+          if (g.length !== 2) return;
+          const a = bytes[(g[0] - 1) * 7 + slot];
+          const b = bytes[(g[1] - 1) * 7 + slot];
+          if (a === b) return;
+          if (allowed && (allowed.indexOf(a) === -1 || allowed.indexOf(b) === -1)) return;
+          if (map[g[0]] || map[g[1]]) return;
+          map[g[0]] = g[1];
+          map[g[1]] = g[0];
+          kind[g[0]] = tag;
+          kind[g[1]] = tag;
+        });
       }
-      Object.keys(groups).forEach(function (k) {
-        const g = groups[k];
-        if (g.length !== 2) return;
-        const r0 = bytes[(g[0] - 1) * 7 + 3];
-        const r1 = bytes[(g[1] - 1) * 7 + 3];
-        if (r0 === r1) return;
-        map[g[0]] = g[1];
-        map[g[1]] = g[0];
-      });
+      pairSlot(3, null, "relic");
+      pairSlot(4, [1, 2], "sight");
+      twinKind = kind;
       return map;
     })(table.bytes);
     if (lastFrame && lastFrame.id) {
