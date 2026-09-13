@@ -55,6 +55,11 @@
   let mode = "watch";
   let lastFrame = { id: 1, attributes: [], unminted: true };
   let canaryId = 0;
+  let twins = Object.create(null);
+  let twinCells = null;
+  let twinSeq = 0;
+  let twinInvite = false;
+  let twinPress = 0;
 
   function pad4(n) {
     return String(n).padStart(4, "0");
@@ -218,8 +223,32 @@
     fitPrint();
   }
 
+  function twinOf(id) {
+    const n = Number(id);
+    if (!twins[n]) return 0;
+    if (lastFrame && decode.frameIsFate(lastFrame)) return 0;
+    return twins[n];
+  }
+
   function setCaption(id) {
-    caption.textContent = "ARGONAUT #" + pad4(id);
+    const twin = twinOf(id);
+    caption.replaceChildren();
+    caption.appendChild(document.createTextNode("ARGONAUT #"));
+    if (twin) {
+      const a = document.createElement("a");
+      a.className = "caption-id" + (id < twin ? " is-lo" : " is-hi");
+      a.href = "?id=" + twin;
+      a.textContent = pad4(id);
+      a.setAttribute("aria-label", "Argonaut " + pad4(id) + ", corresponding print");
+      a.addEventListener("click", function (ev) {
+        if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+        ev.preventDefault();
+        goTwin(twin);
+      });
+      caption.appendChild(a);
+    } else {
+      caption.appendChild(document.createTextNode(pad4(id)));
+    }
     if (document.activeElement !== idInput) {
       idInput.value = String(id);
     }
@@ -357,6 +386,91 @@
     }, rest);
   }
 
+  function clearTwinProof() {
+    twinCells = null;
+    twinSeq += 1;
+    window.clearTimeout(twinPress);
+    twinPress = 0;
+    const old = pixel.querySelector(".twin-proof");
+    if (old) old.remove();
+    pixel.classList.remove("twin-arrive");
+  }
+
+  function placeTwinProof(cells, invite) {
+    const old = pixel.querySelector(".twin-proof");
+    if (old) old.remove();
+    if (!cells || !cells.length) return;
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("class", "twin-proof" + (invite ? " is-invite" : ""));
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("width", "24");
+    svg.setAttribute("height", "24");
+    cells.forEach(function (c) {
+      const r = document.createElementNS(ns, "rect");
+      r.setAttribute("x", String(c.x));
+      r.setAttribute("y", String(c.y));
+      r.setAttribute("width", "1");
+      r.setAttribute("height", "1");
+      r.setAttribute("class", "twin-cell");
+      r.setAttribute("fill", "#ffffff");
+      svg.appendChild(r);
+    });
+    pixel.appendChild(svg);
+    if (invite) {
+      window.setTimeout(function () {
+        svg.classList.remove("is-invite");
+      }, 2200);
+    }
+  }
+
+  function bindTwinProof(frame) {
+    clearTwinProof();
+    if (!frame || mode !== "watch") return;
+    if (player && player.isPlaying()) return;
+    if (decode.frameIsFate(frame)) return;
+    const twin = twins[frame.id];
+    if (!twin) return;
+    const traits = table.row(frame.id);
+    if (!traits || !explode.relicCells) return;
+    const seq = ++twinSeq;
+    const invite = twinInvite;
+    twinInvite = false;
+    explode.relicCells(traits).then(function (cells) {
+      if (seq !== twinSeq || !lastFrame || lastFrame.id !== frame.id) return;
+      twinCells = cells || [];
+      placeTwinProof(twinCells, invite);
+    }).catch(function () {});
+  }
+
+  function goTwin(id) {
+    twinInvite = true;
+    pixel.classList.remove("twin-arrive");
+    void pixel.offsetWidth;
+    pixel.classList.add("twin-arrive");
+    player.goto(id).catch(function () {
+      twinInvite = false;
+    });
+  }
+
+  function twinCellAt(ev) {
+    if (!twinCells || !twinCells.length) return null;
+    const box = pixel.getBoundingClientRect();
+    if (!box.width || !box.height) return null;
+    const x = Math.floor(((ev.clientX - box.left) / box.width) * 24);
+    const y = Math.floor(((ev.clientY - box.top) / box.height) * 24);
+    for (let i = 0; i < twinCells.length; i++) {
+      if (twinCells[i].x === x && twinCells[i].y === y) return twinCells[i];
+    }
+    return null;
+  }
+
+  function setTwinHot(on) {
+    const proof = pixel.querySelector(".twin-proof");
+    if (!proof) return;
+    proof.classList.toggle("is-hot", !!on);
+  }
+
   function mountArt(frame) {
     clearStampLamp();
     if (!frame || frame.unminted) {
@@ -385,6 +499,7 @@
       unmintedEl.hidden = true;
       stage.classList.remove("is-empty");
       scheduleStampLamp(svg);
+      bindTwinProof(frame);
     } catch (err) {
       status.textContent = err.message || "SVG failed";
     }
@@ -555,8 +670,10 @@
       setModeButtons();
       if (!on) {
         clearStampLamp();
+        if (lastFrame) bindTwinProof(lastFrame);
         return;
       }
+      clearTwinProof();
       if (mode !== "watch") return;
       const svg = pixel.querySelector("svg");
       if (svg) scheduleStampLamp(svg);
@@ -666,6 +783,29 @@
     });
   })();
 
+  pixel.addEventListener("pointermove", function (ev) {
+    if (player.isPlaying() || mode !== "watch") return;
+    setTwinHot(!!twinCellAt(ev));
+  });
+  pixel.addEventListener("pointerleave", function () {
+    setTwinHot(false);
+    window.clearTimeout(twinPress);
+    twinPress = 0;
+  });
+  pixel.addEventListener("pointerdown", function (ev) {
+    if (player.isPlaying() || mode !== "watch") return;
+    if (!twinCellAt(ev)) return;
+    window.clearTimeout(twinPress);
+    twinPress = window.setTimeout(function () {
+      setTwinHot(true);
+      twinPress = 0;
+    }, 420);
+  });
+  pixel.addEventListener("pointerup", function () {
+    window.clearTimeout(twinPress);
+    twinPress = 0;
+  });
+
   const touchChrome = window.matchMedia("(hover: none)").matches;
   let chromeTimer = 0;
 
@@ -764,6 +904,31 @@
     }),
   ]).then(function (pair) {
     table.bytes = new Uint8Array(pair[0]);
+    twins = (function (bytes) {
+      const map = Object.create(null);
+      const groups = Object.create(null);
+      for (let id = 1; id <= 9999; id++) {
+        const i = (id - 1) * 7;
+        if (i + 6 >= bytes.length) break;
+        const key = bytes[i] + "," + bytes[i + 1] + "," + bytes[i + 2] + "," + bytes[i + 4] + "," + bytes[i + 5] + "," + bytes[i + 6];
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(id);
+      }
+      Object.keys(groups).forEach(function (k) {
+        const g = groups[k];
+        if (g.length !== 2) return;
+        const r0 = bytes[(g[0] - 1) * 7 + 3];
+        const r1 = bytes[(g[1] - 1) * 7 + 3];
+        if (r0 === r1) return;
+        map[g[0]] = g[1];
+        map[g[1]] = g[0];
+      });
+      return map;
+    })(table.bytes);
+    if (lastFrame && lastFrame.id) {
+      setCaption(lastFrame.id);
+      if (mode === "watch" && !player.isPlaying()) bindTwinProof(lastFrame);
+    }
     if (pair[1] && Array.isArray(pair[1].slots)) {
       table.slots = pair[1].slots.map(function (s) {
         return typeof s === "string" ? s : s.name;
