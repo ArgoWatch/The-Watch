@@ -432,13 +432,13 @@
     if (decode.frameIsFate(frame)) return;
     const twin = twins[frame.id];
     if (!twin) return;
-    if (twinKind[frame.id] !== "relic") return;
     const traits = table.row(frame.id);
-    if (!traits || !explode.relicCells) return;
+    const other = table.row(twin);
+    if (!traits || !other || !explode.traitDiffCells) return;
     const seq = ++twinSeq;
     const invite = twinInvite;
     twinInvite = false;
-    explode.relicCells(traits).then(function (cells) {
+    explode.traitDiffCells(traits, other).then(function (cells) {
       if (seq !== twinSeq || !lastFrame || lastFrame.id !== frame.id) return;
       twinCells = cells || [];
       placeTwinProof(twinCells, invite);
@@ -935,8 +935,9 @@
           kind[g[1]] = tag;
         });
       }
-      pairSlot(3, null, "relic");
-      pairSlot(4, [1, 2], "sight");
+      pairSlot(4, [7, 9], "sight");
+      pairSlot(4, [1, 3], "sight");
+      pairSlot(4, [10, 11], "sight");
       twinKind = kind;
       return map;
     })(table.bytes);
