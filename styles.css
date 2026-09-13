@@ -286,6 +286,14 @@ a.plate-harbor:hover {
   image-rendering: crisp-edges;
 }
 
+.pixel img {
+  display: block;
+  width: 24px;
+  height: 24px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
 /* Integer scales 4–40. Main plate ~4in; isolation half that. */
 .stage.scale-4 { width: 96px; height: 96px; } .scale-4 .pixel { transform: scale(4); }
 .stage.scale-5 { width: 120px; height: 120px; } .scale-5 .pixel { transform: scale(5); }

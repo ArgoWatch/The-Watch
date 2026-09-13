@@ -225,13 +225,99 @@
     setModeButtons();
   }
 
-  function restoreSvg() {
-    if (!lastFrame || lastFrame.unminted || !lastFrame.svg) return;
-    try {
-      pixel.replaceChildren(decode.sanitizeSvg(lastFrame.svg));
+  let stampTimer = 0;
+  let stampRestore = null;
+
+  function clearStampLamp() {
+    window.clearTimeout(stampTimer);
+    stampTimer = 0;
+    if (stampRestore) {
+      stampRestore();
+      stampRestore = null;
+    }
+  }
+
+  function stampMarks(svgEl) {
+    const out = [];
+    if (!svgEl || !svgEl.getElementsByTagName) return out;
+    const rects = svgEl.getElementsByTagName("rect");
+    for (let i = 0; i < rects.length; i++) {
+      const el = rects[i];
+      const fill = String(el.getAttribute("fill") || "").toLowerCase();
+      const w = Number(el.getAttribute("width"));
+      const h = Number(el.getAttribute("height"));
+      const raw = el.getAttribute("fill-opacity");
+      const o = raw == null || raw === "" ? 1 : Number(raw);
+      if (!decode.isPrintStamp({ fill: fill, w: w, h: h, opacity: o })) continue;
+      out.push({ el: el, op: raw });
+    }
+    return out;
+  }
+
+  function scheduleStampLamp(svgEl) {
+    clearStampLamp();
+    if (mode !== "watch") return;
+    if (!player || !player.isPlaying()) return;
+    if (decode.frameIsFate(lastFrame)) return;
+    const marks = stampMarks(svgEl);
+    if (!marks.length) return;
+    const hold = Math.round(1000 / (player.getRate() || 0.5));
+    const lamp = Math.min(800, Math.max(0, Math.floor(hold * 0.4)));
+    if (lamp < 200) return;
+    stampRestore = function () {
+      marks.forEach(function (m) {
+        if (m.op == null || m.op === "") m.el.removeAttribute("fill-opacity");
+        else m.el.setAttribute("fill-opacity", m.op);
+      });
+      stampRestore = null;
+    };
+    stampTimer = window.setTimeout(function () {
+      marks.forEach(function (m) {
+        m.el.setAttribute("fill-opacity", "1");
+      });
+      stampTimer = window.setTimeout(function () {
+        if (stampRestore) stampRestore();
+        stampTimer = 0;
+      }, lamp);
+    }, Math.max(0, hold - lamp));
+  }
+
+  function mountArt(frame) {
+    clearStampLamp();
+    if (!frame || frame.unminted) {
+      pixel.replaceChildren();
+      unmintedEl.hidden = false;
+      stage.classList.add("is-empty");
+      return;
+    }
+    if (frame.kind === "gif" || frame.kind === "raster") {
+      if (!frame.imageUri) return;
+      const img = document.createElement("img");
+      img.src = frame.imageUri;
+      img.width = 24;
+      img.height = 24;
+      img.alt = "";
+      img.draggable = false;
+      pixel.replaceChildren(img);
       unmintedEl.hidden = true;
       stage.classList.remove("is-empty");
-    } catch (_) {}
+      return;
+    }
+    if (!frame.svg) return;
+    try {
+      const svg = decode.sanitizeSvg(frame.svg);
+      pixel.replaceChildren(svg);
+      unmintedEl.hidden = true;
+      stage.classList.remove("is-empty");
+      scheduleStampLamp(svg);
+    } catch (err) {
+      status.textContent = err.message || "SVG failed";
+    }
+  }
+
+  function restoreSvg() {
+    if (!lastFrame) return;
+    mountArt(lastFrame);
   }
 
   function stopDraw() {
@@ -248,6 +334,7 @@
   }
 
   function enterDraw() {
+    if (lastFrame && (lastFrame.kind === "gif" || lastFrame.kind === "raster")) return;
     player.pause();
     if (mode === "apart") {
       hideTraitWell();
@@ -355,7 +442,10 @@
 
   function paint(frame) {
     veil.hidden = !frame.pending;
-    if (frame.pending) return;
+    if (frame.pending) {
+      clearStampLamp();
+      return;
+    }
     lastFrame = frame;
     setCaption(frame.id);
     if (mode === "draw") {
@@ -372,23 +462,7 @@
       return;
     }
 
-    if (frame.unminted) {
-      pixel.replaceChildren();
-      unmintedEl.hidden = false;
-      stage.classList.add("is-empty");
-      return;
-    }
-
-    if (!frame.svg) return;
-
-    try {
-      const svg = decode.sanitizeSvg(frame.svg);
-      pixel.replaceChildren(svg);
-      unmintedEl.hidden = true;
-      stage.classList.remove("is-empty");
-    } catch (err) {
-      status.textContent = err.message || "SVG failed";
-    }
+    mountArt(frame);
   }
 
   const player = playback.createPlayback({
@@ -396,6 +470,20 @@
     rate: 0.5,
     loadFrame: chain.loadFrame,
     prefetch: chain.prefetch,
+    holdExtra: function (frame) {
+      return decode.frameIsFate(frame) ? 1500 : 0;
+    },
+    onPlayChange: function (on) {
+      syncToggle();
+      setModeButtons();
+      if (!on) {
+        clearStampLamp();
+        return;
+      }
+      if (mode !== "watch") return;
+      const svg = pixel.querySelector("svg");
+      if (svg) scheduleStampLamp(svg);
+    },
     onFrame: paint,
     onStatus: function (text) {
       if (table.stale) return;
