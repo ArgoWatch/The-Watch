@@ -578,10 +578,15 @@
     }
   }
 
+  function releaseIdBox() {
+    if (document.activeElement === idInput) idInput.blur();
+  }
+
   async function startFilm(stemId) {
     const film = stemFilmOf(stemId);
     if (!film) return;
     if (mode !== "watch" || (player && player.isPlaying())) return;
+    releaseIdBox();
 
     filmSeq += 1;
     const seq = filmSeq;
@@ -694,6 +699,7 @@
   }
 
   function onWatchClick() {
+    releaseIdBox();
     if (mode === "apart") {
       reassemble();
       return;
@@ -852,6 +858,7 @@
   });
 
   toggleBtn.addEventListener("click", function () {
+    releaseIdBox();
     if (filmPlaying) stopFilm();
     if (mode === "draw") {
       leaveDraw();
@@ -918,6 +925,7 @@
     if (!raw) return;
     const n = player.wrap(Number(raw));
     idInput.value = String(n);
+    if (player.getId() === n && lastFrame && lastFrame.id === n) return;
     player.goto(n).catch(function () {});
   }
 
@@ -971,6 +979,7 @@
     if (filmPlaying) return;
     if (twinCellAt(ev)) return;
     if (lastFrame && stemFilmOf(lastFrame.id)) {
+      releaseIdBox();
       ev.preventDefault();
       startFilm(lastFrame.id);
     }
@@ -1052,6 +1061,7 @@
     if (ev.key === "Enter") {
       ev.preventDefault();
       readIdBox();
+      idInput.blur();
     }
   });
   idInput.addEventListener("focus", function () {
