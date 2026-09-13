@@ -33,7 +33,7 @@ Unofficial Argonauts player. Not affiliated with ACK or Muse Facktory.
 - **Draw** paints the current SVG rects in document order, including `fill-opacity` (the faint black/white stamps ACK overlays on every print). While plotting, the Draw label reads **Pause**; press it to pause, again to resume. **Reset** restarts the plot. **Play** in Draw mode leaves Draw and resumes the slideshow. **Sheet** sits under the mode row in Draw and downloads a night-mode 24×24 graph-paper PDF (white field only; site colors elsewhere).
 - Play wrap easter egg (only after a full 1→9999 play streak): “There is only serve the Muse”.
 - Plates are clickable to highlight. The assembled work stays whole on the left.
-- Watch speed is 0.5× / 1× / 2×. Default is 0.5×. 2× is the cap. 1× = one id per second (0.5× = two seconds, the still beat). Fate/Burned frames add 1.5s extra hold. In Play, still SVGs briefly lift ACK print stamps to full opacity for the last ~40% of the still beat (800ms at 0.5×), then restore on-chain opacity. GIF `tokenURI` images mount as `<img>` (not sanitizeSvg). No fate caption in Play.
+- Watch speed is 0.5× / 1× / 2×. Default is 0.5×. 2× is the cap. 0.5× still beat is ~2.8s (1s rest, fade stamps in, hold, fade back). Fate/Burned adds ~0.8s. GIF `tokenURI` images mount as `<img>`. On-chain SMIL (`animate` on rects) is kept. Do not fetch OpenSea CDN animation_url. No fate caption in Play.
 - `main` is production (GitHub Pages). `staging` is for upgrades; merge to `main` to ship.
 - Explode = museum plate list, not particles. SVG is flat rects — do not fake per-layer isolation.
 

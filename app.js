@@ -226,11 +226,16 @@
   }
 
   let stampTimer = 0;
+  let stampRaf = 0;
   let stampRestore = null;
 
   function clearStampLamp() {
     window.clearTimeout(stampTimer);
     stampTimer = 0;
+    if (stampRaf) {
+      window.cancelAnimationFrame(stampRaf);
+      stampRaf = 0;
+    }
     if (stampRestore) {
       stampRestore();
       stampRestore = null;
@@ -249,9 +254,32 @@
       const raw = el.getAttribute("fill-opacity");
       const o = raw == null || raw === "" ? 1 : Number(raw);
       if (!decode.isPrintStamp({ fill: fill, w: w, h: h, opacity: o })) continue;
-      out.push({ el: el, op: raw });
+      out.push({ el: el, op: raw, base: o });
     }
     return out;
+  }
+
+  function setStampOp(marks, t) {
+    marks.forEach(function (m) {
+      const v = m.base + (1 - m.base) * t;
+      m.el.setAttribute("fill-opacity", String(v));
+    });
+  }
+
+  function fadeStamps(marks, from, to, ms, done) {
+    const t0 = performance.now();
+    function step(now) {
+      const u = ms <= 0 ? 1 : Math.min(1, (now - t0) / ms);
+      const e = u * u * (3 - 2 * u);
+      setStampOp(marks, from + (to - from) * e);
+      if (u < 1) {
+        stampRaf = window.requestAnimationFrame(step);
+        return;
+      }
+      stampRaf = 0;
+      if (done) done();
+    }
+    stampRaf = window.requestAnimationFrame(step);
   }
 
   function scheduleStampLamp(svgEl) {
@@ -261,9 +289,11 @@
     if (decode.frameIsFate(lastFrame)) return;
     const marks = stampMarks(svgEl);
     if (!marks.length) return;
-    const hold = Math.round(1000 / (player.getRate() || 0.5));
-    const lamp = Math.min(800, Math.max(0, Math.floor(hold * 0.4)));
-    if (lamp < 200) return;
+    const hold = player.stillMs ? player.stillMs() : Math.round(1400 / (player.getRate() || 0.5));
+    const rest = Math.round(hold * (1000 / 2800));
+    const fade = Math.round(hold * (700 / 2800));
+    const peak = Math.max(0, hold - rest - fade * 2);
+    if (fade < 80) return;
     stampRestore = function () {
       marks.forEach(function (m) {
         if (m.op == null || m.op === "") m.el.removeAttribute("fill-opacity");
@@ -272,14 +302,15 @@
       stampRestore = null;
     };
     stampTimer = window.setTimeout(function () {
-      marks.forEach(function (m) {
-        m.el.setAttribute("fill-opacity", "1");
+      fadeStamps(marks, 0, 1, fade, function () {
+        stampTimer = window.setTimeout(function () {
+          fadeStamps(marks, 1, 0, fade, function () {
+            if (stampRestore) stampRestore();
+            stampTimer = 0;
+          });
+        }, peak);
       });
-      stampTimer = window.setTimeout(function () {
-        if (stampRestore) stampRestore();
-        stampTimer = 0;
-      }, lamp);
-    }, Math.max(0, hold - lamp));
+    }, rest);
   }
 
   function mountArt(frame) {
@@ -471,7 +502,7 @@
     loadFrame: chain.loadFrame,
     prefetch: chain.prefetch,
     holdExtra: function (frame) {
-      return decode.frameIsFate(frame) ? 1500 : 0;
+      return decode.frameIsFate(frame) ? 800 : 0;
     },
     onPlayChange: function (on) {
       syncToggle();
