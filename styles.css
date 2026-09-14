@@ -334,18 +334,18 @@ a.plate-harbor:hover {
 .stage.scale-39 { width: 936px; height: 936px; } .scale-39 .pixel { transform: scale(39); }
 .stage.scale-40 { width: 960px; height: 960px; } .scale-40 .pixel { transform: scale(40); }
 
-.pixel svg.is-reveal {
-  animation: art-reveal 0.45s ease;
+.pixel svg {
+  opacity: 1;
+  transition: opacity 0.7s ease;
 }
 
-@keyframes art-reveal {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.pixel svg.is-waiting {
+  opacity: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pixel svg.is-reveal {
-    animation: none;
+  .pixel svg {
+    transition: none;
   }
 }
 
@@ -371,7 +371,15 @@ a.plate-harbor:hover {
   background: #070605;
   opacity: 1;
   pointer-events: none;
-  transition: opacity 0.48s ease;
+  transition: opacity 0.7s ease;
+}
+
+.unminted.is-label {
+  background: transparent;
+  text-shadow:
+    0 0 10px #070605,
+    0 0 4px #070605,
+    0 1px 0 #070605;
 }
 
 .unminted.is-fade {

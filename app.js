@@ -630,10 +630,21 @@
     }
   }
 
+  function clearRevealWell() {
+    stage.style.removeProperty("background");
+    unmintedEl.classList.remove("is-fade", "is-label");
+  }
+
+  function paletteHex(svgText) {
+    const m = /fill="(#[0-9A-Fa-f]{3,6})"/.exec(svgText || "");
+    return m && decode.HEX.test(m[1]) ? m[1] : "";
+  }
+
   function mountArt(frame) {
     clearStampLamp();
     window.clearTimeout(revealTimer);
     revealTimer = 0;
+    clearRevealWell();
     if (!frame) return;
     if (frame.unminted && !frame.svg) {
       pixel.replaceChildren();
@@ -642,32 +653,38 @@
       return;
     }
     if (frame.unminted && frame.svg) {
-      pixel.replaceChildren();
+      let svg;
+      try {
+        svg = decode.sanitizeSvg(frame.svg);
+      } catch (_) {
+        pixel.replaceChildren();
+        unmintedEl.hidden = false;
+        stage.classList.add("is-empty");
+        return;
+      }
+      const pal = paletteHex(frame.svg);
+      if (pal) stage.style.background = pal;
+      svg.classList.add("is-waiting");
+      pixel.replaceChildren(svg);
+      unmintedEl.classList.add("is-label");
       unmintedEl.classList.remove("is-fade");
       unmintedEl.hidden = false;
       stage.classList.add("is-empty");
       const still = player && player.stillMs ? player.stillMs() : 2800;
-      const hold = reduceMotion.matches ? 0 : Math.min(800, Math.max(550, Math.round(still * (650 / 2800))));
-      const fade = reduceMotion.matches ? 0 : 480;
+      const hold = reduceMotion.matches ? 0 : Math.min(900, Math.max(600, Math.round(still * (700 / 2800))));
+      const fade = reduceMotion.matches ? 0 : 700;
       revealTimer = window.setTimeout(function () {
         if (!lastFrame || lastFrame.id !== frame.id) return;
-        try {
-          const svg = decode.sanitizeSvg(frame.svg);
-          svg.setAttribute("class", ((svg.getAttribute("class") || "") + " is-reveal").trim());
-          pixel.replaceChildren(svg);
-          stage.classList.remove("is-empty");
-          unmintedEl.classList.add("is-fade");
-          revealTimer = window.setTimeout(function () {
-            revealTimer = 0;
-            if (!lastFrame || lastFrame.id !== frame.id) return;
-            unmintedEl.hidden = true;
-            unmintedEl.classList.remove("is-fade");
-          }, fade);
-        } catch (_) {
+        stage.classList.remove("is-empty");
+        svg.classList.remove("is-waiting");
+        unmintedEl.classList.add("is-fade");
+        revealTimer = window.setTimeout(function () {
           revealTimer = 0;
-          unmintedEl.classList.remove("is-fade");
-          unmintedEl.hidden = false;
-        }
+          if (!lastFrame || lastFrame.id !== frame.id) return;
+          unmintedEl.hidden = true;
+          unmintedEl.classList.remove("is-fade", "is-label");
+          stage.style.removeProperty("background");
+        }, fade);
       }, hold);
       return;
     }
