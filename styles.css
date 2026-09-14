@@ -376,10 +376,22 @@ a.plate-harbor:hover {
 
 .unminted.is-label {
   background: transparent;
+}
+
+.unminted.is-label.is-light {
+  color: var(--ink);
   text-shadow:
     0 0 10px #070605,
     0 0 4px #070605,
     0 1px 0 #070605;
+}
+
+.unminted.is-label.is-dark {
+  color: var(--bg);
+  text-shadow:
+    0 0 10px #e6dcc8,
+    0 0 4px #e6dcc8,
+    0 1px 0 #e6dcc8;
 }
 
 .unminted.is-fade {

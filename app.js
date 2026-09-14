@@ -632,12 +632,19 @@
 
   function clearRevealWell() {
     stage.style.removeProperty("background");
-    unmintedEl.classList.remove("is-fade", "is-label");
+    unmintedEl.classList.remove("is-fade", "is-label", "is-light", "is-dark");
   }
 
   function paletteHex(svgText) {
     const m = /fill="(#[0-9A-Fa-f]{3,6})"/.exec(svgText || "");
     return m && decode.HEX.test(m[1]) ? m[1] : "";
+  }
+
+  function labelOnPalette(hex) {
+    const rgb = decode.hexRgb(hex);
+    if (!rgb) return "is-light";
+    const luma = (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255;
+    return luma >= 0.5 ? "is-dark" : "is-light";
   }
 
   function mountArt(frame) {
@@ -666,7 +673,7 @@
       if (pal) stage.style.background = pal;
       svg.classList.add("is-waiting");
       pixel.replaceChildren(svg);
-      unmintedEl.classList.add("is-label");
+      unmintedEl.classList.add("is-label", pal ? labelOnPalette(pal) : "is-light");
       unmintedEl.classList.remove("is-fade");
       unmintedEl.hidden = false;
       stage.classList.add("is-empty");
@@ -682,7 +689,7 @@
           revealTimer = 0;
           if (!lastFrame || lastFrame.id !== frame.id) return;
           unmintedEl.hidden = true;
-          unmintedEl.classList.remove("is-fade", "is-label");
+          unmintedEl.classList.remove("is-fade", "is-label", "is-light", "is-dark");
           stage.style.removeProperty("background");
         }, fade);
       }, hold);
