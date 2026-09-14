@@ -643,19 +643,29 @@
     }
     if (frame.unminted && frame.svg) {
       pixel.replaceChildren();
-      unmintedEl.hidden = true;
+      unmintedEl.classList.remove("is-fade");
+      unmintedEl.hidden = false;
       stage.classList.add("is-empty");
       const still = player && player.stillMs ? player.stillMs() : 2800;
-      const hold = reduceMotion.matches ? 0 : Math.min(600, Math.max(400, Math.round(still * (500 / 2800))));
+      const hold = reduceMotion.matches ? 0 : Math.min(800, Math.max(550, Math.round(still * (650 / 2800))));
+      const fade = reduceMotion.matches ? 0 : 480;
       revealTimer = window.setTimeout(function () {
-        revealTimer = 0;
         if (!lastFrame || lastFrame.id !== frame.id) return;
         try {
           const svg = decode.sanitizeSvg(frame.svg);
           svg.setAttribute("class", ((svg.getAttribute("class") || "") + " is-reveal").trim());
           pixel.replaceChildren(svg);
           stage.classList.remove("is-empty");
-        } catch (err) {
+          unmintedEl.classList.add("is-fade");
+          revealTimer = window.setTimeout(function () {
+            revealTimer = 0;
+            if (!lastFrame || lastFrame.id !== frame.id) return;
+            unmintedEl.hidden = true;
+            unmintedEl.classList.remove("is-fade");
+          }, fade);
+        } catch (_) {
+          revealTimer = 0;
+          unmintedEl.classList.remove("is-fade");
           unmintedEl.hidden = false;
         }
       }, hold);

@@ -361,6 +361,7 @@ a.plate-harbor:hover {
 .unminted {
   position: absolute;
   inset: 0;
+  z-index: 4;
   display: grid;
   place-items: center;
   font-family: var(--font-mono);
@@ -368,6 +369,13 @@ a.plate-harbor:hover {
   letter-spacing: 0.28em;
   color: var(--gold-dim);
   background: #070605;
+  opacity: 1;
+  pointer-events: none;
+  transition: opacity 0.48s ease;
+}
+
+.unminted.is-fade {
+  opacity: 0;
 }
 
 .unminted[hidden],
