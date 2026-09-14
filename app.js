@@ -44,17 +44,26 @@
     slots: ["Palette", "Bones", "Cloak", "Relic", "Sight", "Artifact", "Crown"],
     bytes: null,
     stale: false,
+    live: Object.create(null),
+    names: Object.create(null),
     row: function (id) {
+      if (this.live[id]) return this.live[id];
       if (!this.bytes) return null;
       const i = (id - 1) * 7;
       if (i < 0 || i + 7 > this.bytes.length) return null;
       return Array.from(this.bytes.slice(i, i + 7));
+    },
+    valueName: function (slot, value) {
+      if (!value) return "None";
+      return this.names[slot + ":" + value] || null;
     },
   };
 
   let mode = "watch";
   let lastFrame = { id: 1, attributes: [], unminted: true };
   let canaryId = 0;
+  let canarySampled = false;
+  let revealTimer = 0;
   let twins = Object.create(null);
   let twinKind = Object.create(null);
   let twinCells = null;
@@ -373,6 +382,7 @@
     clearStampLamp();
     if (mode !== "watch") return;
     if (!player || !player.isPlaying()) return;
+    if (lastFrame && (lastFrame.unminted || lastFrame.source === "render")) return;
     if (decode.frameIsFate(lastFrame)) return;
     const marks = stampMarks(svgEl);
     if (!marks.length) return;
@@ -486,9 +496,11 @@
     proof.classList.toggle("is-hot", !!on);
   }
 
-  function stemFilmOf(id) {
+  function filmDoorOf(id) {
     const film = films[Number(id)];
-    return film && film.ids && film.ids.length > 1 ? film : null;
+    if (!film || !film.ids || film.ids.length < 2) return null;
+    if (film.stem !== Number(id) && film.apex !== Number(id)) return null;
+    return film;
   }
 
   function syncStemClass() {
@@ -497,9 +509,10 @@
       !filmPlaying &&
       !(player && player.isPlaying()) &&
       lastFrame &&
+      lastFrame.source !== "render" &&
       !lastFrame.unminted &&
       !decode.frameIsFate(lastFrame) &&
-      !!stemFilmOf(lastFrame.id);
+      !!filmDoorOf(lastFrame.id);
     stage.classList.toggle("is-stem", on);
     if (!on) stage.classList.remove("is-invite", "is-ready");
   }
@@ -564,7 +577,7 @@
   function paintFilmFrame(frame) {
     clearStampLamp();
     clearTwinProof();
-    if (!frame || frame.unminted || frame.error) return false;
+    if (!frame || frame.unminted || frame.source === "render" || frame.error) return false;
     if (decode.frameIsFate(frame)) return false;
     if (frame.kind === "gif" || frame.kind === "raster") return false;
     if (!frame.svg) return false;
@@ -582,12 +595,14 @@
     if (document.activeElement === idInput) idInput.blur();
   }
 
-  async function startFilm(stemId) {
-    const film = stemFilmOf(stemId);
+  async function startFilm(doorId) {
+    const film = filmDoorOf(doorId);
     if (!film) return;
     if (mode !== "watch" || (player && player.isPlaying())) return;
     releaseIdBox();
 
+    const forward = Number(doorId) === film.stem;
+    const ids = forward ? film.ids : film.reverse;
     filmSeq += 1;
     const seq = filmSeq;
     window.clearTimeout(filmTimer);
@@ -596,39 +611,54 @@
     filmStartedAt = performance.now();
     stage.classList.add("is-film");
     stage.classList.remove("is-invite", "is-ready", "is-stem");
-    chain.prefetch(film.ids);
+    ids.forEach(function (id) {
+      loadArt(id).catch(function () {});
+    });
 
-    for (let i = 1; i < film.ids.length; i++) {
+    for (let i = 1; i < ids.length; i++) {
       if (seq !== filmSeq) return;
       try {
-        const frame = await chain.loadFrame(film.ids[i]);
+        const frame = await loadArt(ids[i]);
         if (seq !== filmSeq) return;
         if (!paintFilmFrame(frame)) continue;
         filmLive = true;
       } catch (_) {
         continue;
       }
-      const last = i === film.ids.length - 1;
+      const last = i === ids.length - 1;
       if (!(await filmWait(last ? FILM_CODA_MS : FILM_FRAME_MS, seq))) return;
     }
-
-    if (seq !== filmSeq) return;
-    try {
-      const home = await chain.loadFrame(film.ids[0]);
-      if (seq !== filmSeq) return;
-      paintFilmFrame(home);
-    } catch (_) {}
-    if (!(await filmWait(FILM_STEM_MS, seq))) return;
-    if (seq !== filmSeq) return;
-    stopFilm();
   }
 
   function mountArt(frame) {
     clearStampLamp();
-    if (!frame || frame.unminted) {
+    window.clearTimeout(revealTimer);
+    revealTimer = 0;
+    if (!frame) return;
+    if (frame.unminted && !frame.svg) {
       pixel.replaceChildren();
       unmintedEl.hidden = false;
       stage.classList.add("is-empty");
+      return;
+    }
+    if (frame.unminted && frame.svg) {
+      pixel.replaceChildren();
+      unmintedEl.hidden = true;
+      stage.classList.add("is-empty");
+      const still = player && player.stillMs ? player.stillMs() : 2800;
+      const hold = reduceMotion.matches ? 0 : Math.min(600, Math.max(400, Math.round(still * (500 / 2800))));
+      revealTimer = window.setTimeout(function () {
+        revealTimer = 0;
+        if (!lastFrame || lastFrame.id !== frame.id) return;
+        try {
+          const svg = decode.sanitizeSvg(frame.svg);
+          svg.setAttribute("class", ((svg.getAttribute("class") || "") + " is-reveal").trim());
+          pixel.replaceChildren(svg);
+          stage.classList.remove("is-empty");
+        } catch (err) {
+          unmintedEl.hidden = false;
+        }
+      }, hold);
       return;
     }
     if (frame.kind === "gif" || frame.kind === "raster") {
@@ -650,8 +680,10 @@
       pixel.replaceChildren(svg);
       unmintedEl.hidden = true;
       stage.classList.remove("is-empty");
-      scheduleStampLamp(svg);
-      bindTwinProof(frame);
+      if (frame.source !== "render") {
+        scheduleStampLamp(svg);
+        bindTwinProof(frame);
+      }
     } catch (err) {
       status.textContent = err.message || "SVG failed";
     }
@@ -678,6 +710,7 @@
 
   function enterDraw() {
     if (lastFrame && (lastFrame.kind === "gif" || lastFrame.kind === "raster")) return;
+    if (lastFrame && (lastFrame.unminted || lastFrame.source === "render")) return;
     if (filmPlaying) stopFilm();
     player.pause();
     if (mode === "apart") {
@@ -758,7 +791,7 @@
     });
     loadIsolation(lastFrame.id, lastFrame.svg);
     canary(lastFrame.id);
-    chain.loadFrame(lastFrame.id, { fresh: true }).then(function (frame) {
+    loadArt(lastFrame.id, { fresh: true }).then(function (frame) {
       if (mode !== "apart") return;
       lastFrame = frame;
       refreshPlates();
@@ -777,16 +810,68 @@
     return true;
   }
 
-  function canary(id) {
-    if (!table.bytes || id === canaryId) return;
-    canaryId = id;
+  function probeTraits(id) {
     chain.traitsOf(id).then(function (live) {
       const snap = table.row(id);
       if (snap && !sameTraits(live, snap)) {
         table.stale = true;
-        status.textContent = "trait table changed on chain — run node scripts/fetch-traits.mjs";
+        table.live[id] = Array.from(live);
+        if (!table.staleNoted) {
+          table.staleNoted = true;
+          status.textContent = "trait table changed on chain — run node scripts/fetch-traits.mjs";
+        }
       }
     }).catch(function () {});
+  }
+
+  function canary(id) {
+    if (!table.bytes) return;
+    if (id !== canaryId) {
+      canaryId = id;
+      probeTraits(id);
+    }
+    if (canarySampled) return;
+    canarySampled = true;
+    probeTraits(player.wrap(id + 97));
+    probeTraits(player.wrap(id + 333));
+  }
+
+  function rememberAttrs(id, attrs) {
+    const t = table.row(id);
+    if (!t || !attrs) return;
+    attrs.forEach(function (a) {
+      const name = String(a && a.trait_type || "").toLowerCase();
+      const slot = table.slots.findIndex(function (s) {
+        return s.toLowerCase() === name;
+      });
+      if (slot < 0 || !t[slot]) return;
+      const val = String(a.value || "");
+      if (!val || val === "None" || val === "Unknown") return;
+      table.names[slot + ":" + t[slot]] = val;
+    });
+  }
+
+  function attributesFor(id, traits) {
+    const t = traits || table.row(id);
+    if (!t) return [];
+    return table.slots.map(function (name, i) {
+      const v = t[i];
+      const named = table.valueName(i, v);
+      return { trait_type: name, value: v ? named || "Unknown" : "None" };
+    });
+  }
+
+  function loadArt(id, opts) {
+    const traits = table.row(id);
+    return chain.loadFrame(id, Object.assign({
+      traits: traits,
+      attributes: attributesFor(id, traits),
+    }, opts || {})).then(function (frame) {
+      if (frame && frame.attributes && frame.source !== "render") {
+        rememberAttrs(frame.id, frame.attributes);
+      }
+      return frame;
+    });
   }
 
   function paint(frame) {
@@ -823,10 +908,12 @@
   const player = playback.createPlayback({
     id: parseDeepId(),
     rate: 0.5,
-    loadFrame: chain.loadFrame,
+    loadFrame: loadArt,
     prefetch: chain.prefetch,
     holdExtra: function (frame) {
-      return decode.frameIsFate(frame) ? 800 : 0;
+      if (decode.frameIsFate(frame)) return 800;
+      if (frame && frame.unminted && frame.svg) return 400;
+      return 0;
     },
     onPlayChange: function (on) {
       if (on && filmPlaying) abortFilm();
@@ -978,7 +1065,7 @@
     if (player.isPlaying() || mode !== "watch") return;
     if (filmPlaying) return;
     if (twinCellAt(ev)) return;
-    if (lastFrame && stemFilmOf(lastFrame.id)) {
+    if (lastFrame && filmDoorOf(lastFrame.id)) {
       releaseIdBox();
       ev.preventDefault();
       startFilm(lastFrame.id);
@@ -1000,7 +1087,7 @@
         return;
       }
     }
-    if (lastFrame && stemFilmOf(lastFrame.id)) {
+    if (lastFrame && filmDoorOf(lastFrame.id)) {
       ev.preventDefault();
       startFilm(lastFrame.id);
     }
@@ -1015,7 +1102,7 @@
 
   stage.addEventListener("pointerenter", function () {
     if (!stage.classList.contains("is-stem") || filmPlaying) return;
-    const film = lastFrame && stemFilmOf(lastFrame.id);
+    const film = lastFrame && filmDoorOf(lastFrame.id);
     if (film) chain.prefetch(film.ids);
     inviteStem();
   });
