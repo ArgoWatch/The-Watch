@@ -647,6 +647,8 @@
       loadArt(id).catch(function () {});
     });
 
+    if (lastFrame && lastFrame.svg) paintFilmFrame(lastFrame);
+
     for (let i = 1; i < ids.length; i++) {
       if (seq !== filmSeq) return;
       try {
@@ -660,6 +662,16 @@
       const last = i === ids.length - 1;
       if (!(await filmWait(last ? FILM_CODA_MS : FILM_FRAME_MS, seq))) return;
     }
+
+    if (seq !== filmSeq) return;
+    try {
+      const home = await loadArt(ids[0]);
+      if (seq !== filmSeq) return;
+      paintFilmFrame(home);
+    } catch (_) {}
+    if (!(await filmWait(FILM_STEM_MS, seq))) return;
+    if (seq !== filmSeq) return;
+    stopFilm();
   }
 
   function clearRevealWell() {
