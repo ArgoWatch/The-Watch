@@ -379,11 +379,43 @@
     return (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255;
   }
 
-  function stampPeakFill(fill, ground) {
-    const a = stampLuma(fill);
-    const b = stampLuma(ground);
-    if (Math.abs(a - b) >= 0.3) return fill;
-    return b >= 0.5 ? "#000000" : "#ffffff";
+  function grayHex(luma) {
+    const v = Math.max(0, Math.min(255, Math.round(luma * 255)));
+    const h = (v < 16 ? "0" : "") + v.toString(16);
+    return "#" + h + h + h;
+  }
+
+  function stampCover(svgEl, x, y, ground) {
+    const rects = svgEl.getElementsByTagName("rect");
+    let cover = ground;
+    for (let i = 0; i < rects.length; i++) {
+      const el = rects[i];
+      if (el.getAttribute("data-stamp-lamp") != null) continue;
+      const fill = String(el.getAttribute("fill") || "").toLowerCase();
+      const w = Number(el.getAttribute("width"));
+      const h = Number(el.getAttribute("height"));
+      const rx = Number(el.getAttribute("x"));
+      const ry = Number(el.getAttribute("y"));
+      const raw = el.getAttribute("fill-opacity");
+      const o = raw == null || raw === "" ? 1 : Number(raw);
+      if (!Number.isFinite(rx) || !Number.isFinite(ry) || !Number.isFinite(w) || !Number.isFinite(h)) continue;
+      if (x < rx || y < ry || x >= rx + w || y >= ry + h) continue;
+      if (decode.isPrintStamp({ fill: fill, w: w, h: h, opacity: o })) continue;
+      if (o < 0.5) continue;
+      cover = fill;
+    }
+    return cover;
+  }
+
+  function stampPeakFill(fill, cover) {
+    const black = stampLuma(fill) < 0.5;
+    const c = stampLuma(cover);
+    if (black) {
+      if (c >= 0.3) return fill;
+      return grayHex(Math.min(0.46, c + 0.32));
+    }
+    if (1 - c >= 0.3) return fill;
+    return grayHex(Math.max(0.62, c - 0.32));
   }
 
   function setStampOp(marks, t) {
@@ -427,12 +459,15 @@
     const ground = groundEl ? String(groundEl.getAttribute("fill") || "") : "#000000";
     const NS = "http://www.w3.org/2000/svg";
     const lamps = marks.map(function (m) {
+      const x = Number(m.el.getAttribute("x"));
+      const y = Number(m.el.getAttribute("y"));
+      const cover = stampCover(svgEl, x, y, ground);
       const c = svgEl.ownerDocument.createElementNS(NS, "rect");
       c.setAttribute("x", m.el.getAttribute("x"));
       c.setAttribute("y", m.el.getAttribute("y"));
       c.setAttribute("width", "1");
       c.setAttribute("height", "1");
-      c.setAttribute("fill", stampPeakFill(m.fill, ground));
+      c.setAttribute("fill", stampPeakFill(m.fill, cover));
       c.setAttribute("fill-opacity", "0");
       c.setAttribute("data-stamp-lamp", "");
       svgEl.appendChild(c);
