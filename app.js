@@ -255,10 +255,24 @@
     return twins[n];
   }
 
+  function isDoor(id) {
+    const n = Number(id);
+    if (lastFrame && lastFrame.id === n) {
+      if (lastFrame.unminted || lastFrame.source === "render") return false;
+      if (decode.frameIsFate(lastFrame)) return false;
+    }
+    if (filmDoorOf(n)) return true;
+    return !!(twins[n] && twinOk[n] === 1);
+  }
+
   function setCaption(id) {
     const twin = filmPlaying ? 0 : twinOf(id);
     caption.replaceChildren();
-    caption.appendChild(document.createTextNode("ARGONAUT #"));
+    caption.appendChild(document.createTextNode("ARGONAUT "));
+    const hash = document.createElement("span");
+    hash.className = "caption-hash" + (isDoor(id) ? " is-door" : "");
+    hash.textContent = "#";
+    caption.appendChild(hash);
     if (twin) {
       const a = document.createElement("a");
       a.className = "caption-id" + (id < twin ? " is-lo" : " is-hi");

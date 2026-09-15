@@ -459,6 +459,10 @@ a.plate-harbor:hover {
   color: var(--ink);
 }
 
+.caption-hash.is-door {
+  color: var(--gold);
+}
+
 a.caption-id {
   color: inherit;
   text-decoration: none;
