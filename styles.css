@@ -336,15 +336,18 @@ a.plate-harbor:hover {
 
 .pixel svg {
   opacity: 1;
-  transition: opacity 0.7s ease;
 }
 
 .pixel svg.is-waiting {
   opacity: 0;
 }
 
+.pixel svg.is-reveal {
+  transition: opacity 0.7s ease;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .pixel svg {
+  .pixel svg.is-reveal {
     transition: none;
   }
 }

@@ -390,9 +390,11 @@
     const marks = stampMarks(svgEl);
     if (!marks.length) return;
     const hold = player.stillMs ? player.stillMs() : Math.round(1400 / (player.getRate() || 0.5));
-    const rest = Math.round(hold * (1000 / 2800));
-    const fade = Math.round(hold * (700 / 2800));
-    const peak = Math.max(0, hold - rest - fade * 2);
+    const tail = Math.round(hold * (800 / 2800));
+    const inner = Math.max(0, hold - tail);
+    const rest = Math.round(inner * (500 / 2000));
+    const fade = Math.round(inner * (500 / 2000));
+    const peak = Math.max(0, inner - rest - fade * 2);
     if (fade < 80) return;
     stampRestore = function () {
       marks.forEach(function (m) {
@@ -728,6 +730,8 @@
       revealTimer = window.setTimeout(function () {
         if (!lastFrame || lastFrame.id !== frame.id) return;
         stage.classList.remove("is-empty");
+        svg.classList.add("is-reveal");
+        void svg.getBoundingClientRect();
         svg.classList.remove("is-waiting");
         unmintedEl.classList.add("is-fade");
         revealTimer = window.setTimeout(function () {
@@ -955,11 +959,11 @@
 
   function paint(frame) {
     if (filmPlaying) abortFilm();
-    veil.hidden = !frame.pending;
     if (frame.pending) {
-      clearStampLamp();
+      if (!pixel.querySelector("svg, canvas, img")) veil.hidden = false;
       return;
     }
+    veil.hidden = true;
     lastFrame = frame;
     setCaption(frame.id);
     syncUrl(frame.id);
