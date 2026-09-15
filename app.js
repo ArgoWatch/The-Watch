@@ -256,7 +256,7 @@
   }
 
   function setCaption(id) {
-    const twin = twinOf(id);
+    const twin = filmPlaying ? 0 : twinOf(id);
     caption.replaceChildren();
     caption.appendChild(document.createTextNode("ARGONAUT #"));
     if (twin) {
@@ -594,7 +594,11 @@
   function stopFilm() {
     const was = filmPlaying;
     abortFilm();
-    if (was && lastFrame) mountArt(lastFrame);
+    if (was && lastFrame) {
+      mountArt(lastFrame);
+      setCaption(lastFrame.id);
+      syncUrl(lastFrame.id);
+    }
     syncStemClass();
     if (stage.classList.contains("is-stem") && stage.matches(":hover")) inviteStem();
   }
@@ -620,6 +624,8 @@
       pixel.replaceChildren(decode.sanitizeSvg(frame.svg));
       unmintedEl.hidden = true;
       stage.classList.remove("is-empty");
+      setCaption(frame.id);
+      syncUrl(frame.id);
       return true;
     } catch (_) {
       return false;
@@ -814,17 +820,18 @@
     setModeButtons();
   }
 
+  function leaveModeAndPlay() {
+    if (mode === "apart") reassemble();
+    else if (mode === "draw") leaveDraw();
+    player.play();
+    syncToggle();
+    setModeButtons();
+  }
+
   function onWatchClick() {
     releaseIdBox();
-    if (mode === "apart") {
-      reassemble();
-      return;
-    }
-    if (mode === "draw") {
-      leaveDraw();
-      player.play();
-      syncToggle();
-      setModeButtons();
+    if (mode === "apart" || mode === "draw") {
+      leaveModeAndPlay();
       return;
     }
     if (filmPlaying) stopFilm();
@@ -1030,12 +1037,11 @@
   toggleBtn.addEventListener("click", function () {
     releaseIdBox();
     if (filmPlaying) stopFilm();
-    if (mode === "draw") {
-      leaveDraw();
-      player.play();
-    } else {
-      player.toggle();
+    if (mode === "draw" || mode === "apart") {
+      leaveModeAndPlay();
+      return;
     }
+    player.toggle();
     syncToggle();
     setModeButtons();
   });
@@ -1279,16 +1285,11 @@
         stopFilm();
         return;
       }
-      if (mode === "apart") {
-        reassemble();
+      if (mode === "apart" || mode === "draw") {
+        leaveModeAndPlay();
         return;
       }
-      if (mode === "draw") {
-        leaveDraw();
-        player.play();
-      } else {
-        player.toggle();
-      }
+      player.toggle();
       syncToggle();
       setModeButtons();
     } else if (ev.key === "ArrowRight") {
