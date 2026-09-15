@@ -77,9 +77,10 @@
   let filmLive = false;
   let filmStartedAt = 0;
   let filmTimer = 0;
-  const FILM_FRAME_MS = 800;
-  const FILM_STEM_MS = 1100;
-  const FILM_CODA_MS = 1600;
+  const FILM_BEAT_MS = 1600;
+  const FILM_FRAME_MS = FILM_BEAT_MS;
+  const FILM_STEM_MS = FILM_BEAT_MS;
+  const FILM_CODA_MS = FILM_BEAT_MS;
   const FILM_CLICK_GRACE_MS = 800;
   const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
