@@ -361,21 +361,34 @@
     const rects = svgEl.getElementsByTagName("rect");
     for (let i = 0; i < rects.length; i++) {
       const el = rects[i];
+      if (el.getAttribute("data-stamp-lamp") != null) continue;
       const fill = String(el.getAttribute("fill") || "").toLowerCase();
       const w = Number(el.getAttribute("width"));
       const h = Number(el.getAttribute("height"));
       const raw = el.getAttribute("fill-opacity");
       const o = raw == null || raw === "" ? 1 : Number(raw);
       if (!decode.isPrintStamp({ fill: fill, w: w, h: h, opacity: o })) continue;
-      out.push({ el: el, op: raw, base: o });
+      out.push({ el: el, fill: fill });
     }
     return out;
   }
 
+  function stampLuma(hex) {
+    const rgb = decode.hexRgb(hex);
+    if (!rgb) return 0;
+    return (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255;
+  }
+
+  function stampPeakFill(fill, ground) {
+    const a = stampLuma(fill);
+    const b = stampLuma(ground);
+    if (Math.abs(a - b) >= 0.3) return fill;
+    return b >= 0.5 ? "#000000" : "#ffffff";
+  }
+
   function setStampOp(marks, t) {
     marks.forEach(function (m) {
-      const v = m.base + (1 - m.base) * t;
-      m.el.setAttribute("fill-opacity", String(v));
+      m.el.setAttribute("fill-opacity", String(t));
     });
   }
 
@@ -410,17 +423,31 @@
     const fade = Math.round(inner * (500 / 2000));
     const peak = Math.max(0, inner - rest - fade * 2);
     if (fade < 80) return;
+    const groundEl = svgEl.querySelector("rect:not([data-stamp-lamp])");
+    const ground = groundEl ? String(groundEl.getAttribute("fill") || "") : "#000000";
+    const NS = "http://www.w3.org/2000/svg";
+    const lamps = marks.map(function (m) {
+      const c = svgEl.ownerDocument.createElementNS(NS, "rect");
+      c.setAttribute("x", m.el.getAttribute("x"));
+      c.setAttribute("y", m.el.getAttribute("y"));
+      c.setAttribute("width", "1");
+      c.setAttribute("height", "1");
+      c.setAttribute("fill", stampPeakFill(m.fill, ground));
+      c.setAttribute("fill-opacity", "0");
+      c.setAttribute("data-stamp-lamp", "");
+      svgEl.appendChild(c);
+      return { el: c };
+    });
     stampRestore = function () {
-      marks.forEach(function (m) {
-        if (m.op == null || m.op === "") m.el.removeAttribute("fill-opacity");
-        else m.el.setAttribute("fill-opacity", m.op);
+      lamps.forEach(function (m) {
+        if (m.el.parentNode) m.el.parentNode.removeChild(m.el);
       });
       stampRestore = null;
     };
     stampTimer = window.setTimeout(function () {
-      fadeStamps(marks, 0, 1, fade, function () {
+      fadeStamps(lamps, 0, 1, fade, function () {
         stampTimer = window.setTimeout(function () {
-          fadeStamps(marks, 1, 0, fade, function () {
+          fadeStamps(lamps, 1, 0, fade, function () {
             if (stampRestore) stampRestore();
             stampTimer = 0;
           });

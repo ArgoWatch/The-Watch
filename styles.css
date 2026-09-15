@@ -20,6 +20,9 @@ html,
 body {
   height: 100%;
   margin: 0;
+  background: var(--bg);
+  color-scheme: dark;
+  overscroll-behavior: none;
 }
 
 body {
