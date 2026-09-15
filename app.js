@@ -65,6 +65,7 @@
   let canarySampled = false;
   let revealTimer = 0;
   let twins = Object.create(null);
+  let twinOk = Object.create(null);
   let twinKind = Object.create(null);
   let twinCells = null;
   let twinSeq = 0;
@@ -248,6 +249,7 @@
   function twinOf(id) {
     const n = Number(id);
     if (!twins[n]) return 0;
+    if (twinOk[n] !== 1) return 0;
     if (lastFrame && decode.frameIsFate(lastFrame)) return 0;
     return twins[n];
   }
@@ -453,18 +455,48 @@
     if (!frame || mode !== "watch") return;
     if (player && player.isPlaying()) return;
     if (decode.frameIsFate(frame)) return;
-    const twin = twins[frame.id];
-    if (!twin) return;
+    if (frame.unminted || frame.source === "render") return;
+    const cand = twins[frame.id];
+    if (!cand) return;
     const traits = table.row(frame.id);
-    const other = table.row(twin);
+    const other = table.row(cand);
     if (!traits || !other || !explode.traitDiffCells) return;
     const seq = ++twinSeq;
     const invite = twinInvite;
     twinInvite = false;
-    explode.traitDiffCells(traits, other).then(function (cells) {
+    Promise.all([
+      explode.traitDiffCells(traits, other),
+      loadArt(cand),
+    ]).then(function (pair) {
       if (seq !== twinSeq || !lastFrame || lastFrame.id !== frame.id) return;
-      twinCells = cells || [];
+      const cells = pair[0] || [];
+      const mate = pair[1];
+      if (!mate || !mate.svg || mate.unminted || !frame.svg || !explode.printDiffCells) {
+        twinOk[frame.id] = 1;
+        twinOk[cand] = 1;
+        twinCells = cells;
+        placeTwinProof(twinCells, invite);
+        setCaption(frame.id);
+        return;
+      }
+      const sight = Object.create(null);
+      cells.forEach(function (c) {
+        sight[c.x + "," + c.y] = true;
+      });
+      const extras = explode.printDiffCells(frame.svg, mate.svg).filter(function (c) {
+        return !sight[c.x + "," + c.y];
+      });
+      if (extras.length) {
+        twinOk[frame.id] = -1;
+        twinOk[cand] = -1;
+        setCaption(frame.id);
+        return;
+      }
+      twinOk[frame.id] = 1;
+      twinOk[cand] = 1;
+      twinCells = cells;
       placeTwinProof(twinCells, invite);
+      setCaption(frame.id);
     }).catch(function () {});
   }
 
