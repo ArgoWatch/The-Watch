@@ -79,6 +79,7 @@
   let filmTimer = 0;
   const deadSinceAt = Object.create(null);
   let ageTimer = 0;
+  let ageOpen = false;
   const FILM_BEAT_MS = 1600;
   const FILM_FRAME_MS = FILM_BEAT_MS;
   const FILM_STEM_MS = FILM_BEAT_MS;
@@ -274,13 +275,20 @@
     return d + "d " + z(h) + "h " + z(m) + "m " + z(r) + "s";
   }
 
+  function canOpenAge(frame) {
+    if (!frame || frame.unminted || frame.source === "render") return false;
+    if (!decode.frameIsFate(frame)) return false;
+    if (filmPlaying) return false;
+    if (mode !== "watch") return false;
+    if (player && player.isPlaying()) return false;
+    return true;
+  }
+
   function showAgeTick(id) {
     const n = Number(id);
+    if (!ageOpen) return false;
     if (!lastFrame || lastFrame.id !== n) return false;
-    if (lastFrame.unminted || lastFrame.source === "render") return false;
-    if (!decode.frameIsFate(lastFrame)) return false;
-    if (filmPlaying) return false;
-    if (player && player.isPlaying()) return false;
+    if (!canOpenAge(lastFrame)) return false;
     return deadSinceOf(n) > 0;
   }
 
@@ -301,6 +309,21 @@
       }
       el.textContent = formatAge(Math.floor(Date.now() / 1000) - deadSinceOf(lastFrame.id));
     }, 1000);
+  }
+
+  function dismissAge() {
+    if (!ageOpen) return;
+    ageOpen = false;
+    stopAgeTick();
+    if (lastFrame) setCaption(lastFrame.id);
+  }
+
+  function openAge() {
+    if (!canOpenAge(lastFrame)) return;
+    ageOpen = true;
+    releaseIdBox();
+    pullDeadSince(lastFrame.id);
+    setCaption(lastFrame.id);
   }
 
   function pullDeadSince(id) {
@@ -784,6 +807,7 @@
     const film = filmDoorOf(doorId);
     if (!film) return;
     if (mode !== "watch" || (player && player.isPlaying())) return;
+    dismissAge();
     releaseIdBox();
 
     const forward = Number(doorId) === film.stem;
@@ -945,6 +969,7 @@
     if (lastFrame && (lastFrame.kind === "gif" || lastFrame.kind === "raster")) return;
     if (lastFrame && (lastFrame.unminted || lastFrame.source === "render")) return;
     if (filmPlaying) stopFilm();
+    dismissAge();
     player.pause();
     if (mode === "apart") {
       hideTraitWell();
@@ -1012,6 +1037,7 @@
       stopDraw();
       restoreSvg();
     }
+    dismissAge();
     player.pause();
     syncToggle();
     mode = "apart";
@@ -1111,10 +1137,12 @@
   function paint(frame) {
     if (filmPlaying) abortFilm();
     if (frame.pending) {
+      if (frame.id && lastFrame && frame.id !== lastFrame.id) dismissAge();
       if (!pixel.querySelector("svg, canvas, img")) veil.hidden = false;
       return;
     }
     veil.hidden = true;
+    if (lastFrame && frame.id !== lastFrame.id) ageOpen = false;
     lastFrame = frame;
     if (decode.frameIsFate(frame) && !frame.unminted && frame.source !== "render") {
       pullDeadSince(frame.id);
@@ -1157,7 +1185,8 @@
       syncToggle();
       setModeButtons();
       syncStemClass();
-      if (lastFrame) setCaption(lastFrame.id);
+      if (on) dismissAge();
+      else if (lastFrame) setCaption(lastFrame.id);
       if (!on) {
         clearStampLamp();
         if (lastFrame) bindTwinProof(lastFrame);
@@ -1327,6 +1356,11 @@
     if (lastFrame && filmDoorOf(lastFrame.id)) {
       ev.preventDefault();
       startFilm(lastFrame.id);
+      return;
+    }
+    if (canOpenAge(lastFrame)) {
+      ev.preventDefault();
+      openAge();
     }
   }
 
