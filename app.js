@@ -77,6 +77,8 @@
   let filmLive = false;
   let filmStartedAt = 0;
   let filmTimer = 0;
+  const deadSinceAt = Object.create(null);
+  let ageTimer = 0;
   const FILM_BEAT_MS = 1600;
   const FILM_FRAME_MS = FILM_BEAT_MS;
   const FILM_STEM_MS = FILM_BEAT_MS;
@@ -255,11 +257,67 @@
     return twins[n];
   }
 
+  function deadSinceOf(id) {
+    const t = deadSinceAt[Number(id)];
+    return t > 0 ? t : 0;
+  }
+
+  function formatAge(sec) {
+    const s = Math.max(0, Math.floor(Number(sec) || 0));
+    const d = Math.floor(s / 86400);
+    const h = Math.floor((s % 86400) / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const r = s % 60;
+    function z(n) {
+      return String(n).padStart(2, "0");
+    }
+    return d + "d " + z(h) + "h " + z(m) + "m " + z(r) + "s";
+  }
+
+  function showAgeTick(id) {
+    const n = Number(id);
+    if (!lastFrame || lastFrame.id !== n) return false;
+    if (lastFrame.unminted || lastFrame.source === "render") return false;
+    if (!decode.frameIsFate(lastFrame)) return false;
+    if (filmPlaying) return false;
+    if (player && player.isPlaying()) return false;
+    return deadSinceOf(n) > 0;
+  }
+
+  function stopAgeTick() {
+    if (!ageTimer) return;
+    window.clearInterval(ageTimer);
+    ageTimer = 0;
+  }
+
+  function startAgeTick() {
+    if (ageTimer) return;
+    ageTimer = window.setInterval(function () {
+      const el = caption.querySelector(".caption-age");
+      if (!el || !lastFrame || !showAgeTick(lastFrame.id)) {
+        stopAgeTick();
+        if (lastFrame) setCaption(lastFrame.id);
+        return;
+      }
+      el.textContent = formatAge(Math.floor(Date.now() / 1000) - deadSinceOf(lastFrame.id));
+    }, 1000);
+  }
+
+  function pullDeadSince(id) {
+    const n = Number(id);
+    if (!Number.isInteger(n) || n < 1 || n > 9999) return;
+    if (!chain.deadSince) return;
+    chain.deadSince(n).then(function (t) {
+      deadSinceAt[n] = Number(t) || 0;
+      if (lastFrame && lastFrame.id === n) setCaption(n);
+    }).catch(function () {});
+  }
+
   function isDoor(id) {
     const n = Number(id);
     if (lastFrame && lastFrame.id === n) {
       if (lastFrame.unminted || lastFrame.source === "render") return false;
-      if (decode.frameIsFate(lastFrame)) return false;
+      if (decode.frameIsFate(lastFrame)) return deadSinceOf(n) > 0;
     }
     if (filmDoorOf(n)) return true;
     return !!(twins[n] && twinOk[n] === 1);
@@ -287,6 +345,16 @@
       caption.appendChild(a);
     } else {
       caption.appendChild(document.createTextNode(pad4(id)));
+    }
+    if (showAgeTick(id)) {
+      const age = document.createElement("span");
+      age.className = "caption-age";
+      age.textContent = formatAge(Math.floor(Date.now() / 1000) - deadSinceOf(id));
+      caption.appendChild(document.createTextNode(" "));
+      caption.appendChild(age);
+      startAgeTick();
+    } else {
+      stopAgeTick();
     }
     if (document.activeElement !== idInput) {
       idInput.value = String(id);
@@ -1048,6 +1116,9 @@
     }
     veil.hidden = true;
     lastFrame = frame;
+    if (decode.frameIsFate(frame) && !frame.unminted && frame.source !== "render") {
+      pullDeadSince(frame.id);
+    }
     setCaption(frame.id);
     syncUrl(frame.id);
     syncColophon(frame.renderer);
@@ -1086,6 +1157,7 @@
       syncToggle();
       setModeButtons();
       syncStemClass();
+      if (lastFrame) setCaption(lastFrame.id);
       if (!on) {
         clearStampLamp();
         if (lastFrame) bindTwinProof(lastFrame);

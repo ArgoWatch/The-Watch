@@ -466,6 +466,13 @@ a.plate-harbor:hover {
   color: var(--gold);
 }
 
+.caption-age {
+  margin-left: 0.85em;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+
 a.caption-id {
   color: inherit;
   text-decoration: none;
