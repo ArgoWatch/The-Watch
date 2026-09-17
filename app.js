@@ -1416,84 +1416,98 @@
   }
 
   (function bindPullReload() {
-    const PULL_MIN = 64;
-    let pulling = false;
-    let pid = 0;
-    let startX = 0;
-    let startY = 0;
-    let dy = 0;
+    const PULL_MIN = 48;
+    let arm = null;
 
-    function pullLimit() {
-      const mast = document.querySelector(".mast");
-      if (!mast) return 88;
-      return mast.getBoundingClientRect().bottom + 12;
+    function abovePlate(y) {
+      const st = document.getElementById("stage");
+      if (!st) return y < 140;
+      return y < st.getBoundingClientRect().top;
     }
 
-    function clearPull(animate) {
-      pulling = false;
-      pid = 0;
-      dy = 0;
-      salon.style.transition = animate ? "transform 0.22s ease" : "";
-      salon.style.transform = "";
-      if (animate) {
-        window.setTimeout(function () {
-          if (!pulling) salon.style.transition = "";
-        }, 240);
-      }
+    function hitPlate(target) {
+      return !!(target && target.closest && target.closest("#stage, .plates, #trait-stage"));
     }
 
-    function fromTop(ev) {
-      if (ev.pointerType === "mouse" || ev.pointerType === "pen") return false;
-      if (ev.pointerType !== "touch" && !window.matchMedia("(hover: none)").matches) return false;
-      if (window.scrollY > 0) return false;
-      const t = ev.target;
-      if (t && t.closest && t.closest("button, a, input, label, .stage, .plates, .controls, .colophon")) return false;
-      return ev.clientY <= pullLimit();
+    function hitControl(target) {
+      return !!(target && target.closest && target.closest("button, a, input, label, .controls, .colophon"));
     }
 
-    document.addEventListener("pointerdown", function (ev) {
-      if (ev.button !== 0) return;
-      if (!fromTop(ev)) return;
-      pulling = true;
-      pid = ev.pointerId;
-      startX = ev.clientX;
-      startY = ev.clientY;
-      dy = 0;
+    function begin(x, y, key, target) {
+      if (window.scrollY > 2) return;
+      if (hitPlate(target) || !abovePlate(y)) return;
+      arm = { key: key, x: x, y: y, dy: 0, control: hitControl(target) };
       salon.style.transition = "none";
-    });
+    }
 
-    document.addEventListener("pointermove", function (ev) {
-      if (!pulling || ev.pointerId !== pid) return;
-      const y = ev.clientY - startY;
-      const x = Math.abs(ev.clientX - startX);
-      if (y < 10 && x < 10) return;
-      if (x > y && dy < 12) {
-        clearPull(false);
+    function move(x, y, ev) {
+      if (!arm) return;
+      const dy = y - arm.y;
+      const dx = Math.abs(x - arm.x);
+      if (Math.abs(dy) < 8 && dx < 8) return;
+      if (dx > Math.abs(dy) && arm.dy < 10) {
+        finish(false);
         return;
       }
-      if (y <= 0) {
-        dy = 0;
+      if (arm.control && dy < 24) return;
+      arm.control = false;
+      if (dy <= 0) {
+        arm.dy = 0;
         salon.style.transform = "";
         return;
       }
-      dy = y;
-      salon.style.transform = "translateY(" + Math.min(56, y * 0.42) + "px)";
-      if (y > 12) ev.preventDefault();
-    }, { passive: false });
+      arm.dy = dy;
+      salon.style.transform = "translateY(" + Math.min(64, dy * 0.45) + "px)";
+      if (ev && ev.cancelable && dy > 8) ev.preventDefault();
+    }
 
-    function endPull(ev) {
-      if (!pulling || (ev && ev.pointerId !== pid)) return;
-      if (dy >= PULL_MIN) {
+    function finish(reloadIfEnough) {
+      if (!arm) return;
+      const dy = arm.dy;
+      arm = null;
+      if (reloadIfEnough && dy >= PULL_MIN) {
         salon.style.transition = "transform 0.12s ease";
-        salon.style.transform = "translateY(32px)";
+        salon.style.transform = "translateY(36px)";
         window.location.reload();
         return;
       }
-      clearPull(true);
+      salon.style.transition = "transform 0.22s ease";
+      salon.style.transform = "";
+      window.setTimeout(function () {
+        if (!arm) salon.style.transition = "";
+      }, 240);
     }
 
-    document.addEventListener("pointerup", endPull);
-    document.addEventListener("pointercancel", endPull);
+    document.addEventListener("touchstart", function (ev) {
+      if (ev.touches.length !== 1) return;
+      const t = ev.touches[0];
+      begin(t.clientX, t.clientY, "touch", ev.target);
+    }, { passive: true });
+    document.addEventListener("touchmove", function (ev) {
+      if (!arm || arm.key !== "touch" || ev.touches.length !== 1) return;
+      const t = ev.touches[0];
+      move(t.clientX, t.clientY, ev);
+    }, { passive: false });
+    document.addEventListener("touchend", function () { finish(true); });
+    document.addEventListener("touchcancel", function () { finish(false); });
+
+    document.addEventListener("pointerdown", function (ev) {
+      if (ev.pointerType === "touch") return;
+      if (ev.button !== 0) return;
+      begin(ev.clientX, ev.clientY, ev.pointerId, ev.target);
+    });
+    document.addEventListener("pointermove", function (ev) {
+      if (!arm || arm.key !== ev.pointerId) return;
+      move(ev.clientX, ev.clientY, ev);
+    }, { passive: false });
+    document.addEventListener("pointerup", function (ev) {
+      if (!arm || arm.key !== ev.pointerId) return;
+      finish(true);
+    });
+    document.addEventListener("pointercancel", function (ev) {
+      if (!arm || arm.key !== ev.pointerId) return;
+      finish(false);
+    });
   })();
 
   idInput.addEventListener("keydown", function (ev) {
