@@ -1381,6 +1381,87 @@
     });
   }
 
+  (function bindPullReload() {
+    const PULL_MIN = 64;
+    let pulling = false;
+    let pid = 0;
+    let startX = 0;
+    let startY = 0;
+    let dy = 0;
+
+    function pullLimit() {
+      const mast = document.querySelector(".mast");
+      if (!mast) return 88;
+      return mast.getBoundingClientRect().bottom + 12;
+    }
+
+    function clearPull(animate) {
+      pulling = false;
+      pid = 0;
+      dy = 0;
+      salon.style.transition = animate ? "transform 0.22s ease" : "";
+      salon.style.transform = "";
+      if (animate) {
+        window.setTimeout(function () {
+          if (!pulling) salon.style.transition = "";
+        }, 240);
+      }
+    }
+
+    function fromTop(ev) {
+      if (ev.pointerType === "mouse" || ev.pointerType === "pen") return false;
+      if (ev.pointerType !== "touch" && !window.matchMedia("(hover: none)").matches) return false;
+      if (window.scrollY > 0) return false;
+      const t = ev.target;
+      if (t && t.closest && t.closest("button, a, input, label, .stage, .plates, .controls, .colophon")) return false;
+      return ev.clientY <= pullLimit();
+    }
+
+    document.addEventListener("pointerdown", function (ev) {
+      if (ev.button !== 0) return;
+      if (!fromTop(ev)) return;
+      pulling = true;
+      pid = ev.pointerId;
+      startX = ev.clientX;
+      startY = ev.clientY;
+      dy = 0;
+      salon.style.transition = "none";
+    });
+
+    document.addEventListener("pointermove", function (ev) {
+      if (!pulling || ev.pointerId !== pid) return;
+      const y = ev.clientY - startY;
+      const x = Math.abs(ev.clientX - startX);
+      if (y < 10 && x < 10) return;
+      if (x > y && dy < 12) {
+        clearPull(false);
+        return;
+      }
+      if (y <= 0) {
+        dy = 0;
+        salon.style.transform = "";
+        return;
+      }
+      dy = y;
+      salon.style.transform = "translateY(" + Math.min(56, y * 0.42) + "px)";
+      if (y > 12) ev.preventDefault();
+    }, { passive: false });
+
+    function endPull(ev) {
+      if (!pulling || (ev && ev.pointerId !== pid)) return;
+      if (dy >= PULL_MIN) {
+        salon.style.transition = "transform 0.12s ease";
+        salon.style.transform = "translateY(32px)";
+        window.location.reload();
+        return;
+      }
+      clearPull(true);
+    }
+
+    document.addEventListener("pointerup", endPull);
+    document.addEventListener("pointercancel", endPull);
+  })();
+
   idInput.addEventListener("keydown", function (ev) {
     if (ev.key === "Enter") {
       ev.preventDefault();
