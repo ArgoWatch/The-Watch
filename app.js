@@ -275,12 +275,28 @@
     return d + "d " + z(h) + "h " + z(m) + "m " + z(r) + "s";
   }
 
-  function canOpenAge(frame) {
+  function isAgeTarget(frame) {
     if (!frame || frame.unminted || frame.source === "render") return false;
-    if (!decode.frameIsFate(frame)) return false;
+    return decode.frameIsFate(frame);
+  }
+
+  function canOpenAge(frame) {
+    if (!isAgeTarget(frame)) return false;
     if (filmPlaying) return false;
     if (mode !== "watch") return false;
     if (player && player.isPlaying()) return false;
+    return true;
+  }
+
+  function requestAge() {
+    if (mode !== "watch" || filmPlaying) return false;
+    if (!isAgeTarget(lastFrame)) return false;
+    if (player && player.isPlaying()) {
+      player.pause();
+      syncToggle();
+      setModeButtons();
+    }
+    openAge();
     return true;
   }
 
@@ -353,6 +369,15 @@
     const hash = document.createElement("span");
     hash.className = "caption-hash" + (isDoor(id) ? " is-door" : "");
     hash.textContent = "#";
+    if (lastFrame && lastFrame.id === Number(id) && isAgeTarget(lastFrame)) {
+      hash.setAttribute("role", "button");
+      hash.setAttribute("aria-label", "Show how long this Argonaut has been dead");
+      hash.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        requestAge();
+      });
+    }
     caption.appendChild(hash);
     if (twin) {
       const a = document.createElement("a");
@@ -1339,7 +1364,11 @@
   }
 
   function onPlateClick(ev) {
-    if (player.isPlaying() || mode !== "watch") return;
+    if (mode !== "watch") return;
+    if (player.isPlaying()) {
+      if (requestAge()) ev.preventDefault();
+      return;
+    }
     if (filmPlaying) {
       ev.preventDefault();
       if (filmCanStop()) stopFilm();

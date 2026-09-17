@@ -470,6 +470,7 @@ a.plate-harbor:hover {
 
 .caption-hash.is-door {
   color: var(--gold);
+  cursor: pointer;
 }
 
 .caption-age {
