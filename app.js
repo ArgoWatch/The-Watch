@@ -1519,24 +1519,6 @@
     }, { passive: false });
     document.addEventListener("touchend", function () { finish(true); });
     document.addEventListener("touchcancel", function () { finish(false); });
-
-    document.addEventListener("pointerdown", function (ev) {
-      if (ev.pointerType === "touch") return;
-      if (ev.button !== 0) return;
-      begin(ev.clientX, ev.clientY, ev.pointerId, ev.target);
-    });
-    document.addEventListener("pointermove", function (ev) {
-      if (!arm || arm.key !== ev.pointerId) return;
-      move(ev.clientX, ev.clientY, ev);
-    }, { passive: false });
-    document.addEventListener("pointerup", function (ev) {
-      if (!arm || arm.key !== ev.pointerId) return;
-      finish(true);
-    });
-    document.addEventListener("pointercancel", function (ev) {
-      if (!arm || arm.key !== ev.pointerId) return;
-      finish(false);
-    });
   })();
 
   idInput.addEventListener("keydown", function (ev) {
