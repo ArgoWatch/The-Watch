@@ -25,7 +25,7 @@ Unofficial Argonauts player. Not affiliated with ACK or Muse Facktory.
 
 ## Taste
 - Dark salon / parchment / hairline gold. Quiet. No rarity badges.
-- The work is the picture. Transport chrome is text-only and appears on hover (tap the plate on touch).
+- The work is the picture. Transport chrome is text-only: always on for mouse/desktop, tap-to-show for 3s on a phone.
 - Wordmark: The Watch. **Play** toggles play / pause. **Strip** toggles explode / reassemble. Play from Strip or Draw leaves that mode and resumes the slideshow in one press.
 - Isolation well is 2in square on desktop (half the 4in plate). On narrow screens, isolation is half the assembled scale and sits to the right of the plate list. None plates are not clickable. Well color is locked per trait name (all Woodpipes share one well). Dark names (Death, Corsair, Eye Patch, pipe, etc.) use paper; otherwise only near-black luma (not dark gold).
 - Touch: tap empty canvas to show transport chrome for 3s; interacting with a control resets the timer. Sheet sits under the mode row in Draw. Fate (and other non-slot extras except Print) are inert, like None. On a phone, pull down from above the plate (mast, padding, or a vertical drag that started on Play/Strip/Draw) reloads. The picture itself does not. Desktop does not pull-to-reload — mouse drag from the header must not slide the salon or eat Play/Strip/Draw clicks.
