@@ -1050,7 +1050,10 @@
       plates.loadChips(Array.from(traits), svg || "").catch(function () {});
     }
     const snap = table.row(id);
-    if (snap) paintChips(snap);
+    if (snap) {
+      paintChips(snap);
+      return;
+    }
     chain.traitsOf(id).then(function (live) {
       paintChips(live);
     }).catch(function () {});
@@ -1184,6 +1187,14 @@
     if (mode === "apart") {
       refreshPlates();
       loadIsolation(frame.id, frame.svg);
+      if (plates.warm && table.row) {
+        const n = Number(frame.id);
+        [n - 1, n + 1].forEach(function (x) {
+          const id = x < 1 ? 9999 : x > 9999 ? 1 : x;
+          const t = table.row(id);
+          if (t) plates.warm(t);
+        });
+      }
     }
 
     if (frame.error) {
