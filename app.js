@@ -69,6 +69,7 @@
   let crewAddresses = null;
   let crewLists = null;
   let echoPicksList = [];
+  let echoCursor = 0;
   let arrangedList = null;
   let crewFirstIn = null;
   let crewOmit = [];
@@ -1526,6 +1527,53 @@
     return table.valueName(slot, v);
   }
 
+  function currentEcho() {
+    if (!echoPicksList.length) return null;
+    if (echoCursor < 0 || echoCursor >= echoPicksList.length) echoCursor = 0;
+    return echoPicksList[echoCursor];
+  }
+
+  function cycleEcho(dir) {
+    if (!echoPicksList.length) return;
+    const n = echoPicksList.length;
+    echoCursor = ((echoCursor + Number(dir) % n) + n) % n;
+    const pick = currentEcho();
+    rebuildPathNav();
+    showPaths();
+    if (pick) walkPath(pick.id);
+  }
+
+  function makeEchoDeck() {
+    const wrap = document.createElement("span");
+    wrap.className = "echo-deck";
+    const pick = currentEcho();
+    const many = echoPicksList.length > 1;
+    if (many) {
+      const prev = document.createElement("button");
+      prev.type = "button";
+      prev.className = "echo-step";
+      prev.setAttribute("data-echo-step", "-1");
+      prev.setAttribute("aria-label", "Previous echo");
+      prev.textContent = "‹";
+      wrap.appendChild(prev);
+    }
+    const name = document.createElement("button");
+    name.type = "button";
+    name.setAttribute("data-path", pick ? pick.id : "watch");
+    name.textContent = pick ? pick.label : "";
+    wrap.appendChild(name);
+    if (many) {
+      const next = document.createElement("button");
+      next.type = "button";
+      next.className = "echo-step";
+      next.setAttribute("data-echo-step", "1");
+      next.setAttribute("aria-label", "Next echo");
+      next.textContent = "›";
+      wrap.appendChild(next);
+    }
+    return wrap;
+  }
+
   function rebuildPathNav() {
     if (!pathsEl) return;
     pathsEl.replaceChildren();
@@ -1534,9 +1582,7 @@
       items.push({ id: "fleet", label: "×", leave: true });
       items.push({ id: "watch", label: "Suit Up" });
       items.push({ id: "dealt", label: "As Minted" });
-      echoPicksList.forEach(function (pick) {
-        items.push({ id: pick.id, label: pick.label });
-      });
+      if (echoPicksList.length) items.push({ deck: true });
       if (crewLists && crewLists.arrived && crewLists.arrived.length) {
         items.push({ id: "arrived", label: "As Arrived" });
       }
@@ -1555,6 +1601,10 @@
       items.push({ id: "crown", label: "Crown" });
     }
     items.forEach(function (item) {
+      if (item.deck) {
+        pathsEl.appendChild(makeEchoDeck());
+        return;
+      }
       const btn = document.createElement("button");
       btn.type = "button";
       btn.setAttribute("data-path", item.id);
@@ -1576,7 +1626,21 @@
     const watch = crew.watchSort(ids, rowOf);
     const dealt = crew.dealtSort(ids);
     const arrived = crew.arrivedSort(ids, firstIn);
+    const keepEcho = echoPicksList[echoCursor] ? echoPicksList[echoCursor].id : "";
     echoPicksList = crew.echoPicks ? crew.echoPicks(ids, rowOf, slotNameOf) : [];
+    echoCursor = 0;
+    if (keepEcho) {
+      const i = echoPicksList.findIndex(function (p) {
+        return p.id === keepEcho;
+      });
+      if (i >= 0) echoCursor = i;
+    }
+    if (String(activePath || "").indexOf("echo:") === 0) {
+      const j = echoPicksList.findIndex(function (p) {
+        return p.id === activePath;
+      });
+      if (j >= 0) echoCursor = j;
+    }
     crewLists = {
       watch: watch,
       dealt: dealt,
@@ -1586,6 +1650,35 @@
     echoPicksList.forEach(function (pick) {
       crewLists[pick.id] = pick.ids;
     });
+  }
+
+  const stripArtWait = [];
+  let stripArtLive = 0;
+  const STRIP_ART_N = 4;
+
+  function fillStripWell(cell, well, id) {
+    function run() {
+      if (stripArtLive >= STRIP_ART_N) {
+        stripArtWait.push(run);
+        return;
+      }
+      stripArtLive += 1;
+      loadArt(id).then(function (frame) {
+        if (!cell.isConnected) return;
+        well.classList.remove("is-wait");
+        if (!frame || !frame.svg) return;
+        try {
+          well.replaceChildren(decode.sanitizeSvg(frame.svg));
+        } catch (_) {}
+      }).catch(function () {
+        if (cell.isConnected) well.classList.remove("is-wait");
+      }).then(function () {
+        stripArtLive -= 1;
+        const next = stripArtWait.shift();
+        if (next) next();
+      });
+    }
+    run();
   }
 
   function makeStripCell(id) {
@@ -1606,16 +1699,7 @@
     drop.textContent = "×";
     cell.appendChild(btn);
     cell.appendChild(drop);
-    loadArt(id).then(function (frame) {
-      if (!cell.isConnected) return;
-      well.classList.remove("is-wait");
-      if (!frame || !frame.svg) return;
-      try {
-        well.replaceChildren(decode.sanitizeSvg(frame.svg));
-      } catch (_) {}
-    }).catch(function () {
-      if (cell.isConnected) well.classList.remove("is-wait");
-    });
+    fillStripWell(cell, well, id);
     return cell;
   }
 
@@ -1674,6 +1758,7 @@
     crewAddresses = null;
     crewLists = null;
     echoPicksList = [];
+    echoCursor = 0;
     arrangedList = null;
     crewFirstIn = null;
     crewOmit = [];
@@ -1878,6 +1963,12 @@
   });
   if (pathsEl) {
     pathsEl.addEventListener("click", function (ev) {
+      const step = ev.target.closest("[data-echo-step]");
+      if (step && mode === "watch") {
+        ev.preventDefault();
+        cycleEcho(Number(step.getAttribute("data-echo-step")));
+        return;
+      }
       const btn = ev.target.closest("[data-path]");
       if (!btn || mode !== "watch") return;
       walkPath(btn.getAttribute("data-path"));

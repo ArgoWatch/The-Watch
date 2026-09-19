@@ -177,6 +177,35 @@ button.wordmark:focus-visible {
   color: var(--gold);
 }
 
+.echo-deck {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  max-width: min(14rem, 72vw);
+}
+
+.echo-deck [data-path] {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.echo-step {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  letter-spacing: 0;
+  word-spacing: 0;
+  text-transform: none;
+  color: var(--gold-dim);
+  padding: 0 0.15rem;
+  border-bottom: 1px solid transparent;
+}
+
+.echo-step:hover,
+.echo-step:focus-visible {
+  color: var(--gold);
+}
+
 .crew {
   display: none;
   flex-direction: column;
@@ -303,11 +332,11 @@ button.wordmark:focus-visible {
 }
 
 .path-strip .strip-cell {
-  display: inline-block;
-  position: relative;
-  width: 24px;
-  height: 24px;
-  margin: 0 3px 0 0;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  width: 28px;
+  margin: 0 6px 0 0;
   vertical-align: top;
 }
 
@@ -325,26 +354,15 @@ button.wordmark:focus-visible {
 }
 
 .path-strip .strip-drop {
-  position: absolute;
-  top: -0.55rem;
-  right: -0.4rem;
-  width: 0.9rem;
-  height: 0.9rem;
+  width: 28px;
+  height: 1.4rem;
   padding: 0;
   font-family: var(--font-serif);
-  font-size: 0.72rem;
-  line-height: 0.9rem;
+  font-size: 1.05rem;
+  line-height: 1.4rem;
   letter-spacing: 0;
   text-transform: none;
   color: var(--gold-dim);
-  opacity: 0;
-  pointer-events: none;
-}
-
-.path-strip .strip-cell:hover .strip-drop,
-.path-strip .strip-cell:focus-within .strip-drop {
-  opacity: 1;
-  pointer-events: auto;
 }
 
 .path-strip .strip-drop:hover,
@@ -353,13 +371,7 @@ button.wordmark:focus-visible {
 }
 
 .salon.crew-busy .strip-drop {
-  display: none;
-}
-
-@media (hover: none) {
-  .path-strip .strip-drop {
-    display: none;
-  }
+  visibility: hidden;
 }
 
 .path-strip .pixel,
