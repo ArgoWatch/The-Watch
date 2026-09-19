@@ -136,6 +136,7 @@ button.wordmark:focus-visible {
 }
 
 .salon.paths-on:not(.take-apart):not(.draw-mode) .paths,
+.salon.crew-live:not(.take-apart):not(.draw-mode) .paths,
 .salon.crew-busy:not(.take-apart):not(.draw-mode) .paths {
   opacity: 1;
   pointer-events: auto;
@@ -337,6 +338,7 @@ button.wordmark:focus-visible {
 }
 
 .salon.paths-on:not(.take-apart):not(.draw-mode) .path-strip:not([hidden]),
+.salon.crew-live:not(.take-apart):not(.draw-mode) .path-strip:not([hidden]),
 .salon.crew-busy:not(.take-apart):not(.draw-mode) .path-strip:not([hidden]) {
   display: block;
   opacity: 1;

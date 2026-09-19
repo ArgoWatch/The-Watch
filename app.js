@@ -1795,10 +1795,15 @@
     paintStrip();
   }
 
+  function inCrew() {
+    return !!(crewIds || crewBusy || crewEditing);
+  }
+
   function syncCrewChrome() {
     const root = document.getElementById("crew");
+    salon.classList.toggle("crew-live", inCrew());
     if (!root) return;
-    root.classList.toggle("is-edit", !!(crewEditing || crewIds || crewBusy));
+    root.classList.toggle("is-edit", inCrew());
     if (idInput) idInput.tabIndex = crewEditing ? -1 : 0;
   }
 
@@ -2511,7 +2516,7 @@
   }
 
   function hidePaths() {
-    if (crewBusy) return;
+    if (inCrew()) return;
     if (document.activeElement && document.activeElement.classList.contains("crew-addr")) return;
     const mouseHover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
     if (mouseHover && playNavEl && playNavEl.matches(":hover")) {
@@ -2525,6 +2530,7 @@
     if (mode !== "watch") return;
     salon.classList.add("paths-on");
     window.clearTimeout(pathTimer);
+    if (inCrew()) return;
     pathTimer = window.setTimeout(hidePaths, 3000);
   }
 
