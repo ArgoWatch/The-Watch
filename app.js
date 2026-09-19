@@ -72,6 +72,10 @@
   let arrangedList = null;
   let crewFirstIn = null;
   let stripSeq = 0;
+  let crewBusy = false;
+  let crewEditing = false;
+  const ACK_CREW = "0x03ee832367e29a5cd001f65093283eabb5382b62";
+  const CREW_MAX = 4;
   let lastFrame = { id: 1, attributes: [], unminted: true };
   let canaryId = 0;
   let canarySampled = false;
@@ -472,12 +476,14 @@
 
   function syncToggle() {
     if (mode === "draw") {
-      toggleBtn.textContent = "Play";
+      toggleBtn.textContent = "▶";
+      toggleBtn.setAttribute("aria-label", "Play");
       toggleBtn.setAttribute("aria-pressed", "false");
       return;
     }
     const on = walkIsOn();
-    toggleBtn.textContent = on ? "Pause" : "Play";
+    toggleBtn.textContent = on ? "❚❚" : "▶";
+    toggleBtn.setAttribute("aria-label", on ? "Pause" : "Play");
     toggleBtn.setAttribute("aria-pressed", on ? "true" : "false");
   }
 
@@ -499,6 +505,13 @@
     modeDraw.classList.toggle("is-on", mode === "draw");
     modeDraw.classList.toggle("is-playing", drawing);
     modeDraw.setAttribute("aria-pressed", drawing ? "true" : "false");
+    const crewBtn = document.getElementById("btn-crew");
+    if (crewBtn) {
+      const on = !!(crewIds || crewBusy || crewEditing);
+      crewBtn.classList.toggle("is-on", on);
+      crewBtn.classList.toggle("is-loading", crewBusy);
+      crewBtn.setAttribute("aria-pressed", on ? "true" : "false");
+    }
     if (mode !== "watch") {
       salon.classList.remove("paths-on");
       window.clearTimeout(pathTimer);
@@ -1457,6 +1470,18 @@
       return;
     }
     const next = crewIds ? String(name || "watch").toLowerCase() : paths.parse(name);
+    if (crewIds && next === activePath && next !== "watch") {
+      abandonTrip();
+      adoptPath("watch", { force: true });
+      const dest = startOfPath();
+      syncUrl(dest);
+      player.goto(dest, { keepPlay: true }).then(function () {
+        player.play();
+        syncToggle();
+        setModeButtons();
+      }).catch(function () {});
+      return;
+    }
     if (next === activePath) return;
     abandonTrip();
     if (!adoptPath(next)) return;
@@ -1489,8 +1514,6 @@
     pathsEl.replaceChildren();
     const items = [];
     if (crewIds) {
-      items.push({ id: "fleet", label: "Fleet" });
-      items.push({ id: "watch", label: "The Watch" });
       items.push({ id: "dealt", label: "As dealt" });
       if (echoLabel && crewLists && crewLists.echo && crewLists.echo.length) {
         items.push({ id: "echo", label: echoLabel });
@@ -1518,8 +1541,7 @@
       pathsEl.appendChild(btn);
     });
     markPathButtons();
-    const crewBtn = document.getElementById("btn-crew");
-    if (crewBtn) crewBtn.classList.toggle("is-on", !!crewIds);
+    setModeButtons();
   }
 
   function buildCrewLists(ids, firstIn) {
@@ -1554,6 +1576,7 @@
     host.replaceChildren();
     const seq = ++stripSeq;
     const cur = player.getId();
+    const wells = [];
     list.forEach(function (id) {
       const btn = document.createElement("button");
       btn.type = "button";
@@ -1561,17 +1584,30 @@
       btn.setAttribute("aria-label", "Argonaut " + pad4(id));
       if (id === cur) btn.classList.add("is-on");
       const well = document.createElement("div");
-      well.className = "pixel";
+      well.className = "pixel is-wait";
       btn.appendChild(well);
       host.appendChild(btn);
-      loadArt(id).then(function (frame) {
-        if (seq !== stripSeq) return;
-        if (!frame || !frame.svg || frame.unminted) return;
-        try {
-          well.replaceChildren(decode.sanitizeSvg(frame.svg));
-        } catch (_) {}
-      }).catch(function () {});
+      wells.push({ id: id, well: well });
     });
+    let i = 0;
+    function pump() {
+      if (seq !== stripSeq) return;
+      if (i >= wells.length) return;
+      const item = wells[i++];
+      loadArt(item.id).then(function (frame) {
+        if (seq !== stripSeq) return;
+        item.well.classList.remove("is-wait");
+        if (!frame || !frame.svg) return;
+        try {
+          item.well.replaceChildren(decode.sanitizeSvg(frame.svg));
+        } catch (_) {}
+      }).catch(function () {
+        if (seq === stripSeq) item.well.classList.remove("is-wait");
+      }).then(pump);
+    }
+    pump();
+    pump();
+    pump();
   }
 
   function markStripCurrent() {
@@ -1601,10 +1637,11 @@
     echoLabel = "";
     arrangedList = null;
     crewFirstIn = null;
+    crewBusy = false;
+    crewEditing = false;
+    salon.classList.remove("crew-busy");
     const crewRoot = document.getElementById("crew");
-    const crewInput = document.getElementById("crew-input");
     if (crewRoot) crewRoot.classList.remove("is-edit");
-    if (crewInput) crewInput.value = "";
     rebuildPathNav();
     adoptPath("fleet", { force: true });
     paintStrip();
@@ -1619,10 +1656,15 @@
       if (!opts.fromUrl) clearCrew();
       return Promise.resolve();
     }
-    status.textContent = "reading chain…";
+    crewBusy = true;
+    salon.classList.add("crew-busy");
+    showPaths();
+    setModeButtons();
     return crew.holdings(addrs).then(function (got) {
       if (!got.ids.length) {
-        status.textContent = "";
+        crewBusy = false;
+        salon.classList.remove("crew-busy");
+        setModeButtons();
         return;
       }
       crewAddresses = got.addresses;
@@ -1640,9 +1682,6 @@
           if (arrangedList.indexOf(id) < 0) arrangedList.push(id);
         });
       }
-      return Promise.all(got.ids.slice(0, 5).map(function (id) {
-        return loadArt(id).catch(function () {});
-      })).then(function () {
       buildCrewLists(got.ids, got.firstIn);
       rebuildPathNav();
       let want = opts.path || "watch";
@@ -1653,14 +1692,25 @@
       const list = listForPath(want) || got.ids;
       let dest = Number(opts.id);
       if (!dest || list.indexOf(dest) < 0) dest = list[0];
-      status.textContent = "";
-      return player.goto(dest, { keepPlay: opts.keepPlay }).then(function () {
-        paintStrip();
+      paintStrip();
+      const go = player.goto(dest, { keepPlay: opts.keepPlay }).then(function () {
         syncUrl(dest);
       });
+      Promise.all(got.ids.slice(0, 5).map(function (id) {
+        return loadArt(id).catch(function () {});
+      })).then(function () {
+        const prev = echoLabel;
+        buildCrewLists(got.ids, got.firstIn);
+        if (echoLabel !== prev) rebuildPathNav();
       });
+      return go;
     }).catch(function () {
-      status.textContent = "";
+      /* quiet */
+    }).then(function () {
+      crewBusy = false;
+      salon.classList.remove("crew-busy");
+      setModeButtons();
+      showPaths();
     });
   }
 
@@ -1722,34 +1772,109 @@
   (function bindCrew() {
     const crewRoot = document.getElementById("crew");
     const crewBtn = document.getElementById("btn-crew");
-    const crewInput = document.getElementById("crew-input");
-    if (!crewRoot || !crewBtn || !crewInput) return;
-    crewBtn.addEventListener("click", function () {
-      crewRoot.classList.toggle("is-edit");
-      showPaths();
-      if (crewRoot.classList.contains("is-edit")) {
-        if (crewAddresses) crewInput.value = crewAddresses.join(", ");
-        crewInput.focus();
+    const fields = document.getElementById("crew-fields");
+    if (!crewRoot || !crewBtn || !fields) return;
+
+    function rows() {
+      return fields.querySelectorAll(".crew-addr");
+    }
+
+    function addRow(value, showPlus) {
+      if (rows().length >= CREW_MAX) return;
+      const row = document.createElement("div");
+      row.className = "crew-row";
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "crew-addr";
+      input.spellcheck = false;
+      input.autocomplete = "off";
+      input.setAttribute("aria-label", "Crew address");
+      if (value) input.value = value;
+      const plus = document.createElement("button");
+      plus.type = "button";
+      plus.className = "crew-add";
+      plus.textContent = "+";
+      plus.setAttribute("aria-label", "Another address");
+      row.appendChild(input);
+      row.appendChild(plus);
+      fields.appendChild(row);
+      plus.addEventListener("click", function () {
+        addRow("", true);
+        refreshPlus();
+        const next = rows()[rows().length - 1];
+        if (next) next.focus();
+      });
+      input.addEventListener("keydown", function (ev) {
+        if (ev.key === "Enter") {
+          ev.preventDefault();
+          submitCrew();
+        }
+        if (ev.key === "Escape") {
+          ev.preventDefault();
+          closeEditor();
+        }
+      });
+      input.addEventListener("focus", function () {
+        showPaths();
+      });
+      refreshPlus();
+      return input;
+    }
+
+    function refreshPlus() {
+      const pluses = fields.querySelectorAll(".crew-add");
+      pluses.forEach(function (p, i) {
+        p.hidden = i !== pluses.length - 1 || pluses.length >= CREW_MAX;
+      });
+    }
+
+    function collected() {
+      const bits = [];
+      rows().forEach(function (input) {
+        bits.push(input.value);
+      });
+      return bits.join(" ");
+    }
+
+    function openEditor() {
+      crewEditing = true;
+      crewRoot.classList.add("is-edit");
+      fields.replaceChildren();
+      const first = addRow(crewAddresses && crewAddresses.length ? crewAddresses[0] : ACK_CREW, true);
+      if (crewAddresses) {
+        for (let i = 1; i < crewAddresses.length; i++) addRow(crewAddresses[i], true);
       }
-    });
-    function submitCrew() {
-      const text = crewInput.value;
+      showPaths();
+      setModeButtons();
+      if (first) {
+        first.focus();
+        first.select();
+      }
+    }
+
+    function closeEditor() {
+      crewEditing = false;
       crewRoot.classList.remove("is-edit");
+      setModeButtons();
+    }
+
+    function submitCrew() {
+      const text = collected();
+      closeEditor();
       loadCrew(text, { id: player.getId() }).catch(function () {});
     }
-    crewInput.addEventListener("keydown", function (ev) {
-      if (ev.key === "Enter") {
-        ev.preventDefault();
-        submitCrew();
-        crewInput.blur();
+
+    crewBtn.addEventListener("click", function () {
+      if (crewBusy) return;
+      if (crewIds) {
+        clearCrew();
+        return;
       }
-      if (ev.key === "Escape") {
-        crewRoot.classList.remove("is-edit");
-        crewInput.blur();
+      if (crewEditing) {
+        closeEditor();
+        return;
       }
-    });
-    crewInput.addEventListener("focus", function () {
-      showPaths();
+      openEditor();
     });
   })();
 
@@ -2001,7 +2126,8 @@
   }
 
   function hidePaths() {
-    if (document.activeElement && document.activeElement.id === "crew-input") return;
+    if (crewBusy) return;
+    if (document.activeElement && document.activeElement.classList.contains("crew-addr")) return;
     const mouseHover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
     if (mouseHover && playNavEl && playNavEl.matches(":hover")) {
       pathTimer = window.setTimeout(hidePaths, 3000);
@@ -2153,7 +2279,7 @@
   });
 
   document.addEventListener("keydown", function (ev) {
-    if (ev.target === idInput || (ev.target && ev.target.id === "crew-input")) return;
+    if (ev.target === idInput || (ev.target && ev.target.classList && ev.target.classList.contains("crew-addr"))) return;
     if (ev.key === "e" || ev.key === "E") {
       ev.preventDefault();
       onApartClick();
