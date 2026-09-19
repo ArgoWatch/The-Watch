@@ -68,10 +68,11 @@
   let crewIds = null;
   let crewAddresses = null;
   let crewLists = null;
-  let echoLabel = "";
+  let echoPicksList = [];
   let arrangedList = null;
   let crewFirstIn = null;
-  let stripSeq = 0;
+  let crewOmit = [];
+  let crewGen = 0;
   let crewBusy = false;
   let crewEditing = false;
   const ACK_CREW = "0x03ee832367e29a5cd001f65093283eabb5382b62";
@@ -133,15 +134,25 @@
     return crew.parseAddresses(raw.replace(/[.+]/g, " "));
   }
 
-  function parseOrderFromUrl() {
-    const q = new URLSearchParams(location.search).get("order");
-    if (!q) return null;
+  function parseIdList(raw) {
     const out = [];
-    String(q).split(/[.,]/).forEach(function (s) {
+    String(raw || "").split(/[.,]/).forEach(function (s) {
       const n = Number(s);
       if (Number.isInteger(n) && n >= 1 && n <= 9999) out.push(n);
     });
+    return out;
+  }
+
+  function parseOrderFromUrl() {
+    const q = new URLSearchParams(location.search).get("order");
+    const out = parseIdList(q);
     return out.length ? out : null;
+  }
+
+  function parseOmitFromUrl() {
+    const q = new URLSearchParams(location.search).get("omit");
+    const out = parseIdList(q);
+    return out.length ? out : [];
   }
 
   function parsePathFromUrl() {
@@ -150,7 +161,9 @@
     if (crewIds) {
       const s = String(raw || "watch").toLowerCase();
       if (s === "fleet") return "fleet";
-      if (s === "dealt" || s === "echo" || s === "arrived" || s === "arranged" || s === "watch") return s;
+      if (s === "minted") return "dealt";
+      if (s === "dealt" || s === "arrived" || s === "arranged" || s === "watch") return s;
+      if (s === "echo" || s.indexOf("echo:") === 0) return s;
       return "watch";
     }
     if (raw) return paths.parse(raw);
@@ -166,6 +179,7 @@
       if (activePath && activePath !== "watch") p.set("path", activePath);
       else p.set("path", "watch");
       if (arrangedList && arrangedList.length) p.set("order", arrangedList.join("."));
+      if (crewOmit && crewOmit.length) p.set("omit", crewOmit.join("."));
     } else if (activePath && activePath !== "fleet") {
       p.set("path", activePath);
     }
@@ -1444,6 +1458,11 @@
   function markPathButtons() {
     if (!pathsEl) return;
     pathsEl.querySelectorAll("[data-path]").forEach(function (btn) {
+      if (btn.classList.contains("is-leave")) {
+        btn.classList.remove("is-on");
+        btn.removeAttribute("aria-current");
+        return;
+      }
       const on = btn.getAttribute("data-path") === activePath;
       btn.classList.toggle("is-on", on);
       if (on) btn.setAttribute("aria-current", "true");
@@ -1465,14 +1484,13 @@
   }
 
   function walkPath(name) {
-    if (crewIds && String(name) === "fleet") {
+    if ((crewIds || crewBusy) && String(name) === "fleet") {
       clearCrew();
       return;
     }
     const next = crewIds ? String(name || "watch").toLowerCase() : paths.parse(name);
-    if (crewIds && next === activePath && next !== "watch") {
+    if (next === activePath) {
       abandonTrip();
-      adoptPath("watch", { force: true });
       const dest = startOfPath();
       syncUrl(dest);
       player.goto(dest, { keepPlay: true }).then(function () {
@@ -1482,7 +1500,6 @@
       }).catch(function () {});
       return;
     }
-    if (next === activePath) return;
     abandonTrip();
     if (!adoptPath(next)) return;
     const dest = startOfPath();
@@ -1513,20 +1530,22 @@
     if (!pathsEl) return;
     pathsEl.replaceChildren();
     const items = [];
-    if (crewIds) {
-      items.push({ id: "fleet", label: "Fleet" });
-      items.push({ id: "watch", label: "Build" });
-      items.push({ id: "dealt", label: "As dealt" });
-      if (echoLabel && crewLists && crewLists.echo && crewLists.echo.length) {
-        items.push({ id: "echo", label: echoLabel });
-      }
+    if (crewIds && !crewBusy) {
+      items.push({ id: "fleet", label: "×", leave: true });
+      items.push({ id: "watch", label: "Suit Up" });
+      items.push({ id: "dealt", label: "As Minted" });
+      echoPicksList.forEach(function (pick) {
+        items.push({ id: pick.id, label: pick.label });
+      });
       if (crewLists && crewLists.arrived && crewLists.arrived.length) {
-        items.push({ id: "arrived", label: "As they arrived" });
+        items.push({ id: "arrived", label: "As Arrived" });
       }
       if (arrangedList && arrangedList.length) {
         items.push({ id: "arranged", label: "As arranged" });
       }
-    } else if (!crewEditing && !crewBusy) {
+    } else if (crewBusy) {
+      items.push({ id: "fleet", label: "×", leave: true });
+    } else if (!crewEditing) {
       items.push({ id: "fleet", label: "Fleet" });
       items.push({ id: "unclothed", label: "Unclothed" });
       items.push({ id: "cloak", label: "Cloak" });
@@ -1540,6 +1559,10 @@
       btn.type = "button";
       btn.setAttribute("data-path", item.id);
       btn.textContent = item.label;
+      if (item.leave) {
+        btn.classList.add("is-leave");
+        btn.setAttribute("aria-label", "Leave crew");
+      }
       pathsEl.appendChild(btn);
     });
     markPathButtons();
@@ -1553,16 +1576,47 @@
     const watch = crew.watchSort(ids, rowOf);
     const dealt = crew.dealtSort(ids);
     const arrived = crew.arrivedSort(ids, firstIn);
-    let pick = crew.echoPick(ids, rowOf, slotNameOf);
-    echoLabel = pick ? pick.label : "";
-    const echo = pick ? crew.echoIds(ids, pick, rowOf) : [];
+    echoPicksList = crew.echoPicks ? crew.echoPicks(ids, rowOf, slotNameOf) : [];
     crewLists = {
       watch: watch,
       dealt: dealt,
-      echo: echo,
       arrived: arrived,
       arranged: arrangedList,
     };
+    echoPicksList.forEach(function (pick) {
+      crewLists[pick.id] = pick.ids;
+    });
+  }
+
+  function makeStripCell(id) {
+    const cell = document.createElement("span");
+    cell.className = "strip-cell";
+    cell.setAttribute("data-id", String(id));
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "strip-go";
+    btn.setAttribute("aria-label", "Argonaut " + pad4(id));
+    const well = document.createElement("div");
+    well.className = "pixel is-wait";
+    btn.appendChild(well);
+    const drop = document.createElement("button");
+    drop.type = "button";
+    drop.className = "strip-drop";
+    drop.setAttribute("aria-label", "Leave this Argonaut");
+    drop.textContent = "×";
+    cell.appendChild(btn);
+    cell.appendChild(drop);
+    loadArt(id).then(function (frame) {
+      if (!cell.isConnected) return;
+      well.classList.remove("is-wait");
+      if (!frame || !frame.svg) return;
+      try {
+        well.replaceChildren(decode.sanitizeSvg(frame.svg));
+      } catch (_) {}
+    }).catch(function () {
+      if (cell.isConnected) well.classList.remove("is-wait");
+    });
+    return cell;
   }
 
   function paintStrip() {
@@ -1573,43 +1627,25 @@
       host.replaceChildren();
       return;
     }
-    const list = listForPath(activePath) || crewIds;
+    const list = (crewBusy ? crewIds : (listForPath(activePath) || crewIds)).slice();
     host.hidden = false;
-    host.replaceChildren();
-    const seq = ++stripSeq;
-    const cur = player.getId();
-    const wells = [];
-    list.forEach(function (id) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.setAttribute("data-id", String(id));
-      btn.setAttribute("aria-label", "Argonaut " + pad4(id));
-      if (id === cur) btn.classList.add("is-on");
-      const well = document.createElement("div");
-      well.className = "pixel is-wait";
-      btn.appendChild(well);
-      host.appendChild(btn);
-      wells.push({ id: id, well: well });
+    const byId = Object.create(null);
+    Array.prototype.forEach.call(host.children, function (el) {
+      const id = Number(el.getAttribute("data-id"));
+      if (id) byId[id] = el;
     });
-    let i = 0;
-    function pump() {
-      if (seq !== stripSeq) return;
-      if (i >= wells.length) return;
-      const item = wells[i++];
-      loadArt(item.id).then(function (frame) {
-        if (seq !== stripSeq) return;
-        item.well.classList.remove("is-wait");
-        if (!frame || !frame.svg) return;
-        try {
-          item.well.replaceChildren(decode.sanitizeSvg(frame.svg));
-        } catch (_) {}
-      }).catch(function () {
-        if (seq === stripSeq) item.well.classList.remove("is-wait");
-      }).then(pump);
-    }
-    pump();
-    pump();
-    pump();
+    const keep = Object.create(null);
+    const frag = document.createDocumentFragment();
+    const cur = player.getId();
+    list.forEach(function (id) {
+      keep[id] = true;
+      let cell = byId[id];
+      if (!cell) cell = makeStripCell(id);
+      cell.classList.toggle("is-on", id === cur);
+      frag.appendChild(cell);
+    });
+    host.replaceChildren();
+    host.appendChild(frag);
   }
 
   function markStripCurrent() {
@@ -1633,12 +1669,14 @@
 
   function clearCrew() {
     abandonTrip();
+    crewGen += 1;
     crewIds = null;
     crewAddresses = null;
     crewLists = null;
-    echoLabel = "";
+    echoPicksList = [];
     arrangedList = null;
     crewFirstIn = null;
+    crewOmit = [];
     crewBusy = false;
     crewEditing = false;
     salon.classList.remove("crew-busy");
@@ -1650,6 +1688,110 @@
     syncUrl(player.getId());
   }
 
+  function idsWithoutOmit(ids) {
+    if (!crewOmit || !crewOmit.length) return ids.slice();
+    const skip = Object.create(null);
+    crewOmit.forEach(function (id) {
+      skip[id] = true;
+    });
+    return ids.filter(function (id) {
+      return !skip[id];
+    });
+  }
+
+  function resolveCrewPath(want) {
+    const s = String(want || "watch").toLowerCase();
+    if (s === "minted") return "dealt";
+    if (s === "echo") {
+      return echoPicksList.length ? echoPicksList[0].id : "watch";
+    }
+    if (s.indexOf("echo:") === 0) {
+      if (crewLists && crewLists[s] && crewLists[s].length) return s;
+      return echoPicksList.length ? echoPicksList[0].id : "watch";
+    }
+    if (s === "arrived" && !(crewLists && crewLists.arrived && crewLists.arrived.length)) return "watch";
+    if (s === "arranged" && !(arrangedList && arrangedList.length)) return "watch";
+    if (s === "dealt" || s === "watch" || s === "arranged" || s === "arrived") return s;
+    return "watch";
+  }
+
+  function applyCrewHoldings(got, opts, live) {
+    if (!got || !got.ids || !got.ids.length) return false;
+    crewAddresses = got.addresses || crewAddresses;
+    crewFirstIn = got.firstIn || crewFirstIn;
+    crewIds = idsWithoutOmit(got.ids);
+    if (!crewIds.length) return false;
+    if (opts && opts.order && opts.order.length && !live) {
+      const allow = Object.create(null);
+      crewIds.forEach(function (id) {
+        allow[id] = true;
+      });
+      arrangedList = opts.order.filter(function (id) {
+        return allow[id];
+      });
+      crewIds.forEach(function (id) {
+        if (arrangedList.indexOf(id) < 0) arrangedList.push(id);
+      });
+    }
+    buildCrewLists(crewIds, crewFirstIn);
+    paintStrip();
+    return true;
+  }
+
+  function finishCrew(got, opts) {
+    opts = opts || {};
+    crewBusy = false;
+    salon.classList.remove("crew-busy");
+    if (!applyCrewHoldings(got, opts, false)) {
+      rebuildPathNav();
+      setModeButtons();
+      return Promise.resolve();
+    }
+    const want = resolveCrewPath(opts.path || "watch");
+    adoptPath(want, { force: true });
+    rebuildPathNav();
+    const list = listForPath(want) || crewIds;
+    let dest = Number(opts.id);
+    if (!dest || list.indexOf(dest) < 0) dest = list[0];
+    showPaths();
+    setModeButtons();
+    return player.goto(dest, { keepPlay: opts.keepPlay }).then(function () {
+      syncUrl(dest);
+    });
+  }
+
+  function removeCrewId(id) {
+    id = Number(id);
+    if (!crewIds || crewIds.indexOf(id) < 0) return;
+    crewIds = crewIds.filter(function (n) {
+      return n !== id;
+    });
+    if (arrangedList) {
+      arrangedList = arrangedList.filter(function (n) {
+        return n !== id;
+      });
+    }
+    if (crewOmit.indexOf(id) < 0) crewOmit.push(id);
+    if (!crewIds.length) {
+      clearCrew();
+      return;
+    }
+    abandonTrip();
+    buildCrewLists(crewIds, crewFirstIn);
+    let next = activePath;
+    if (!listForPath(next)) next = "watch";
+    adoptPath(next, { force: true });
+    rebuildPathNav();
+    paintStrip();
+    if (player.getId() === id) {
+      const dest = startOfPath();
+      syncUrl(dest);
+      player.goto(dest).catch(function () {});
+    } else {
+      syncUrl(player.getId());
+    }
+  }
+
   function loadCrew(text, opts) {
     opts = opts || {};
     if (!crew || !crew.holdings) return Promise.resolve();
@@ -1658,58 +1800,30 @@
       if (!opts.fromUrl) clearCrew();
       return Promise.resolve();
     }
+    const job = ++crewGen;
+    if (!opts.fromUrl) crewOmit = [];
+    else if (opts.omit) crewOmit = opts.omit.slice();
     crewBusy = true;
     salon.classList.add("crew-busy");
     rebuildPathNav();
     showPaths();
     setModeButtons();
-    return crew.holdings(addrs).then(function (got) {
-      if (!got.ids.length) {
-        crewBusy = false;
-        salon.classList.remove("crew-busy");
-        setModeButtons();
-        return;
-      }
-      crewAddresses = got.addresses;
-      crewIds = got.ids;
-      crewFirstIn = got.firstIn;
-      if (opts.order && opts.order.length) {
-        const allow = Object.create(null);
-        got.ids.forEach(function (id) {
-          allow[id] = true;
-        });
-        arrangedList = opts.order.filter(function (id) {
-          return allow[id];
-        });
-        got.ids.forEach(function (id) {
-          if (arrangedList.indexOf(id) < 0) arrangedList.push(id);
-        });
-      }
-      buildCrewLists(got.ids, got.firstIn);
-      rebuildPathNav();
-      let want = opts.path || "watch";
-      if (want === "echo" && !(crewLists.echo && crewLists.echo.length)) want = "watch";
-      if (want === "arrived" && !(crewLists.arrived && crewLists.arrived.length)) want = "watch";
-      if (want === "arranged" && !(arrangedList && arrangedList.length)) want = "watch";
-      adoptPath(want, { force: true });
-      const list = listForPath(want) || got.ids;
-      let dest = Number(opts.id);
-      if (!dest || list.indexOf(dest) < 0) dest = list[0];
-      paintStrip();
-      const go = player.goto(dest, { keepPlay: opts.keepPlay }).then(function () {
-        syncUrl(dest);
-      });
-      Promise.all(got.ids.slice(0, 5).map(function (id) {
-        return loadArt(id).catch(function () {});
-      })).then(function () {
-        const prev = echoLabel;
-        buildCrewLists(got.ids, got.firstIn);
-        if (echoLabel !== prev) rebuildPathNav();
-      });
-      return go;
+    return crew.holdings(addrs, {
+      aborted: function () {
+        return job !== crewGen;
+      },
+      onProgress: function (got) {
+        if (job !== crewGen) return;
+        applyCrewHoldings(got, opts, true);
+        rebuildPathNav();
+      },
+    }).then(function (got) {
+      if (job !== crewGen) return;
+      return finishCrew(got, opts);
     }).catch(function () {
       /* quiet */
     }).then(function () {
+      if (job !== crewGen) return;
       crewBusy = false;
       salon.classList.remove("crew-busy");
       rebuildPathNav();
@@ -1889,29 +2003,48 @@
     const host = document.getElementById("path-strip");
     if (!host) return;
     let drag = null;
+    let holdTimer = 0;
+    const coarse = window.matchMedia("(hover: none), (pointer: coarse)");
 
-    function listNow() {
-      return (listForPath(activePath) || crewIds || []).slice();
-    }
+    host.addEventListener("click", function (ev) {
+      const drop = ev.target.closest(".strip-drop");
+      if (!drop || !crewIds || crewBusy) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      const cell = drop.closest("[data-id]");
+      if (!cell) return;
+      removeCrewId(Number(cell.getAttribute("data-id")));
+    });
 
     host.addEventListener("pointerdown", function (ev) {
-      const btn = ev.target.closest("[data-id]");
-      if (!btn || !crewIds) return;
+      if (ev.target.closest(".strip-drop")) return;
+      const cell = ev.target.closest("#path-strip [data-id]");
+      if (!cell || !crewIds) return;
       drag = {
-        id: Number(btn.getAttribute("data-id")),
+        id: Number(cell.getAttribute("data-id")),
         x: ev.clientX,
         y: ev.clientY,
         moved: false,
-        el: btn,
+        el: cell,
       };
+      window.clearTimeout(holdTimer);
+      if (coarse.matches && !crewBusy) {
+        holdTimer = window.setTimeout(function () {
+          if (!drag || drag.moved) return;
+          const id = drag.id;
+          drag = null;
+          removeCrewId(id);
+        }, 650);
+      }
       try {
-        btn.setPointerCapture(ev.pointerId);
+        cell.setPointerCapture(ev.pointerId);
       } catch (_) {}
     });
     host.addEventListener("pointermove", function (ev) {
       if (!drag) return;
       if (Math.abs(ev.clientX - drag.x) < 7 && Math.abs(ev.clientY - drag.y) < 7) return;
       drag.moved = true;
+      window.clearTimeout(holdTimer);
       const over = document.elementFromPoint(ev.clientX, ev.clientY);
       const other = over && over.closest && over.closest("#path-strip [data-id]");
       if (!other || other === drag.el) return;
@@ -1924,7 +2057,8 @@
       if (i < j) parent.insertBefore(drag.el, other.nextSibling);
       else parent.insertBefore(drag.el, other);
     });
-    function endDrag(ev) {
+    function endDrag() {
+      window.clearTimeout(holdTimer);
       if (!drag) return;
       const moved = drag.moved;
       const id = drag.id;
@@ -1935,13 +2069,14 @@
         return;
       }
       const order = [];
-      host.querySelectorAll("[data-id]").forEach(function (btn) {
-        order.push(Number(btn.getAttribute("data-id")));
+      host.querySelectorAll("[data-id]").forEach(function (el) {
+        order.push(Number(el.getAttribute("data-id")));
       });
       if (order.length) applyArranged(order);
     }
     host.addEventListener("pointerup", endDrag);
     host.addEventListener("pointercancel", function () {
+      window.clearTimeout(holdTimer);
       drag = null;
     });
   })();
@@ -2391,6 +2526,7 @@
           id: parseDeepId(),
           path: q.get("path") || "watch",
           order: parseOrderFromUrl(),
+          omit: parseOmitFromUrl(),
           keepPlay: player.isPlaying(),
         }).catch(function () {});
         return;
@@ -2432,6 +2568,7 @@
           id: parseDeepId(),
           path: q.get("path") || "watch",
           order: parseOrderFromUrl(),
+          omit: parseOmitFromUrl(),
         }).catch(function () {});
         return;
       }
