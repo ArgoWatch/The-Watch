@@ -1306,7 +1306,11 @@
     if (!adoptPath(next)) return;
     const dest = player.after(from, 1);
     syncUrl(dest);
-    player.goto(dest, { keepPlay: player.isPlaying() }).catch(function () {});
+    player.goto(dest, { keepPlay: true }).then(function () {
+      player.play();
+      syncToggle();
+      setModeButtons();
+    }).catch(function () {});
   }
 
   toggleBtn.addEventListener("click", function () {
