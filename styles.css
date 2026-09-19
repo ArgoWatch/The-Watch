@@ -218,14 +218,17 @@ button.wordmark:focus-visible {
   transition: opacity 180ms ease;
 }
 
-.salon.paths-on:not(.take-apart):not(.draw-mode) .crew.is-edit {
+.salon.paths-on:not(.take-apart):not(.draw-mode) .crew.is-edit,
+.salon.paths-on:not(.take-apart):not(.draw-mode) .crew.has-more,
+.salon.crew-busy:not(.take-apart):not(.draw-mode) .crew.is-edit {
   display: flex;
   opacity: 1;
   pointer-events: auto;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .salon:not(.take-apart):not(.draw-mode) .play-nav:hover .crew.is-edit {
+  .salon:not(.take-apart):not(.draw-mode) .play-nav:hover .crew.is-edit,
+  .salon:not(.take-apart):not(.draw-mode) .play-nav:hover .crew.has-more {
     display: flex;
     opacity: 1;
     pointer-events: auto;
@@ -298,8 +301,27 @@ button.wordmark:focus-visible {
   min-width: 0.9rem;
 }
 
-.crew-add[hidden] {
+.crew-add[hidden],
+.crew-more[hidden] {
   display: none;
+}
+
+.crew-more,
+.crew-forget {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--gold-dim);
+  padding: 0;
+  min-width: 0.9rem;
+}
+
+.crew-more:hover,
+.crew-more:focus-visible,
+.crew-forget:hover,
+.crew-forget:focus-visible {
+  color: var(--gold);
 }
 
 .path-strip {

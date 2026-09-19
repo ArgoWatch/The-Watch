@@ -76,7 +76,8 @@
   let crewGen = 0;
   let crewBusy = false;
   let crewEditing = false;
-  const ACK_CREW = "0x03ee832367e29a5cd001f65093283eabb5382b62";
+  const OSSEN_CREW = "0x6033f255b56ebdcb7f5a408d62628733e945bb1b";
+  let lastCrew = null;
   const CREW_MAX = 4;
   let lastFrame = { id: 1, attributes: [], unminted: true };
   let canaryId = 0;
@@ -527,6 +528,7 @@
       crewBtn.classList.toggle("is-loading", crewBusy);
       crewBtn.setAttribute("aria-pressed", on ? "true" : "false");
     }
+    syncCrewChrome();
     if (mode !== "watch") {
       salon.classList.remove("paths-on");
       window.clearTimeout(pathTimer);
@@ -1486,7 +1488,7 @@
 
   function walkPath(name) {
     if ((crewIds || crewBusy) && String(name) === "fleet") {
-      clearCrew();
+      stashAndLeave();
       return;
     }
     const next = crewIds ? String(name || "watch").toLowerCase() : paths.parse(name);
@@ -1617,6 +1619,7 @@
     });
     markPathButtons();
     setModeButtons();
+    syncCrewChrome();
   }
 
   function buildCrewLists(ids, firstIn) {
@@ -1748,10 +1751,34 @@
     rebuildPathNav();
     abandonTrip();
     adoptPath("arranged", { force: true });
+    snapshotCrew();
     syncUrl(player.getId());
   }
 
-  function clearCrew() {
+  function copyFirstIn(src) {
+    const out = Object.create(null);
+    if (!src) return out;
+    Object.keys(src).forEach(function (k) {
+      out[k] = src[k];
+    });
+    return out;
+  }
+
+  function snapshotCrew() {
+    if (!crewAddresses || !crewAddresses.length || !crewIds || !crewIds.length) return;
+    lastCrew = {
+      addresses: crewAddresses.slice(),
+      ids: crewIds.slice(),
+      firstIn: copyFirstIn(crewFirstIn),
+      omit: crewOmit.slice(),
+      arranged: arrangedList ? arrangedList.slice() : null,
+      path: activePath,
+      echoCursor: echoCursor,
+      id: player.getId(),
+    };
+  }
+
+  function parkLiveCrew() {
     abandonTrip();
     crewGen += 1;
     crewIds = null;
@@ -1763,14 +1790,69 @@
     crewFirstIn = null;
     crewOmit = [];
     crewBusy = false;
+    salon.classList.remove("crew-busy");
+    paintStrip();
+  }
+
+  function syncCrewChrome() {
+    const root = document.getElementById("crew");
+    const more = document.getElementById("crew-more");
+    if (!root) return;
+    const moreOn = !!(crewIds && !crewEditing && !crewBusy);
+    root.classList.toggle("has-more", moreOn);
+    if (more) more.hidden = !moreOn;
+  }
+
+  function stashAndLeave() {
+    snapshotCrew();
+    crewEditing = false;
+    const crewRoot = document.getElementById("crew");
+    if (crewRoot) crewRoot.classList.remove("is-edit");
+    parkLiveCrew();
+    rebuildPathNav();
+    adoptPath("fleet", { force: true });
+    syncUrl(player.getId());
+    setModeButtons();
+  }
+
+  function restoreLastCrew() {
+    if (!lastCrew || !lastCrew.ids || !lastCrew.ids.length) return false;
+    crewAddresses = lastCrew.addresses.slice();
+    crewOmit = (lastCrew.omit || []).slice();
+    arrangedList = lastCrew.arranged ? lastCrew.arranged.slice() : null;
+    echoCursor = lastCrew.echoCursor || 0;
+    crewFirstIn = copyFirstIn(lastCrew.firstIn);
+    crewIds = lastCrew.ids.slice();
+    crewBusy = false;
     crewEditing = false;
     salon.classList.remove("crew-busy");
     const crewRoot = document.getElementById("crew");
     if (crewRoot) crewRoot.classList.remove("is-edit");
+    buildCrewLists(crewIds, crewFirstIn);
+    const want = resolveCrewPath(lastCrew.path || "watch");
+    adoptPath(want, { force: true });
+    rebuildPathNav();
+    const list = listForPath(want) || crewIds;
+    let dest = Number(lastCrew.id);
+    if (!dest || list.indexOf(dest) < 0) dest = list[0];
+    showPaths();
+    setModeButtons();
+    player.goto(dest).then(function () {
+      syncUrl(dest);
+    }).catch(function () {});
+    return true;
+  }
+
+  function clearCrew() {
+    lastCrew = null;
+    crewEditing = false;
+    const crewRoot = document.getElementById("crew");
+    if (crewRoot) crewRoot.classList.remove("is-edit");
+    parkLiveCrew();
     rebuildPathNav();
     adoptPath("fleet", { force: true });
-    paintStrip();
     syncUrl(player.getId());
+    setModeButtons();
   }
 
   function idsWithoutOmit(ids) {
@@ -1840,6 +1922,7 @@
     if (!dest || list.indexOf(dest) < 0) dest = list[0];
     showPaths();
     setModeButtons();
+    snapshotCrew();
     return player.goto(dest, { keepPlay: opts.keepPlay }).then(function () {
       syncUrl(dest);
     });
@@ -1868,6 +1951,7 @@
     adoptPath(next, { force: true });
     rebuildPathNav();
     paintStrip();
+    snapshotCrew();
     if (player.getId() === id) {
       const dest = startOfPath();
       syncUrl(dest);
@@ -2049,9 +2133,37 @@
       crewEditing = true;
       crewRoot.classList.add("is-edit");
       fields.replaceChildren();
-      const first = addRow(crewAddresses && crewAddresses.length ? crewAddresses[0] : ACK_CREW, true);
-      if (crewAddresses) {
-        for (let i = 1; i < crewAddresses.length; i++) addRow(crewAddresses[i], true);
+      const from = crewAddresses && crewAddresses.length
+        ? crewAddresses
+        : (lastCrew && lastCrew.addresses && lastCrew.addresses.length ? lastCrew.addresses : null);
+      const first = addRow(from ? from[0] : OSSEN_CREW, true);
+      if (from) {
+        for (let i = 1; i < from.length; i++) addRow(from[i], true);
+      }
+      if (crewIds || lastCrew) {
+        const forget = document.createElement("button");
+        forget.type = "button";
+        forget.className = "crew-forget";
+        forget.textContent = "×";
+        forget.setAttribute("aria-label", "New crew");
+        const row = fields.querySelector(".crew-row");
+        if (row) row.insertBefore(forget, row.firstChild);
+        forget.addEventListener("click", function () {
+          lastCrew = null;
+          parkLiveCrew();
+          crewEditing = true;
+          crewRoot.classList.add("is-edit");
+          fields.replaceChildren();
+          const input = addRow(OSSEN_CREW, true);
+          rebuildPathNav();
+          showPaths();
+          setModeButtons();
+          syncUrl(player.getId());
+          if (input) {
+            input.focus();
+            input.select();
+          }
+        });
       }
       rebuildPathNav();
       showPaths();
@@ -2067,6 +2179,7 @@
       crewRoot.classList.remove("is-edit");
       rebuildPathNav();
       setModeButtons();
+      if (lastCrew && !crewIds) restoreLastCrew();
     }
 
     function submitCrew() {
@@ -2076,14 +2189,26 @@
       loadCrew(text, { id: player.getId() }).catch(function () {});
     }
 
+    const more = document.getElementById("crew-more");
+    if (more) {
+      more.addEventListener("click", function () {
+        if (crewBusy) return;
+        openEditor();
+      });
+    }
+
     crewBtn.addEventListener("click", function () {
       if (crewBusy) return;
       if (crewIds) {
-        clearCrew();
+        stashAndLeave();
         return;
       }
       if (crewEditing) {
         closeEditor();
+        return;
+      }
+      if (lastCrew) {
+        restoreLastCrew();
         return;
       }
       openEditor();
@@ -2664,7 +2789,7 @@
         return;
       }
     } else if (crewIds) {
-      clearCrew();
+      stashAndLeave();
     }
     const n = parseDeepId();
     const wanted = parsePathFromUrl();
