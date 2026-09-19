@@ -1048,12 +1048,14 @@
     releaseIdBox();
     if (mode === "apart" || mode === "draw") {
       leaveModeAndPlay();
+      showPaths();
       return;
     }
     if (filmPlaying) stopFilm();
     player.toggle();
     syncToggle();
     setModeButtons();
+    showPaths();
   }
 
   function onDrawClick() {
@@ -1313,6 +1315,20 @@
     }).catch(function () {});
   }
 
+  function startOfPath() {
+    if (activePath === "fleet") return 1;
+    const list = listForPath(activePath);
+    if (list && list.length) return list[0];
+    return 1;
+  }
+
+  function restartShow() {
+    if (filmPlaying) stopFilm();
+    const dest = startOfPath();
+    if (player.getId() === dest && lastFrame && lastFrame.id === dest) return;
+    player.goto(dest, { keepPlay: player.isPlaying() }).catch(function () {});
+  }
+
   toggleBtn.addEventListener("click", function () {
     releaseIdBox();
     if (filmPlaying) stopFilm();
@@ -1547,12 +1563,7 @@
 
   document.addEventListener("pointerdown", function (ev) {
     const t = ev.target;
-    if (t.closest(".wordmark")) {
-      if (ev.pointerType === "touch" || !window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
-        showPaths();
-      }
-      return;
-    }
+    if (t.closest(".wordmark")) return;
     if (t.closest(".paths")) {
       showPaths();
       return;
@@ -1583,6 +1594,12 @@
     playNavEl.addEventListener("pointerleave", function (ev) {
       if (ev.pointerType === "touch") return;
       showPaths();
+    });
+  }
+  if (wordmarkEl) {
+    wordmarkEl.addEventListener("click", function (ev) {
+      ev.preventDefault();
+      restartShow();
     });
   }
 
