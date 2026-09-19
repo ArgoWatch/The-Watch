@@ -1,6 +1,6 @@
 (function () {
   "use strict";
-  const { chain, decode, playback, explode, draw, sheet, family } = window.TheScore;
+  const { chain, decode, playback, explode, draw, sheet, family, paths } = window.TheScore;
 
   const salon = document.querySelector(".salon");
   const stage = document.getElementById("stage");
@@ -60,6 +60,8 @@
   };
 
   let mode = "watch";
+  let activePath = "fleet";
+  let pathLists = null;
   let lastFrame = { id: 1, attributes: [], unminted: true };
   let canaryId = 0;
   let canarySampled = false;
@@ -107,15 +109,30 @@
     return 1;
   }
 
+  function parsePathFromUrl() {
+    const q = new URLSearchParams(location.search);
+    const raw = q.get("path");
+    if (raw) return paths.parse(raw);
+    if (q.get("bones") === "1") return "unclothed";
+    return "fleet";
+  }
+
+  function pathSearch(id) {
+    const p = new URLSearchParams();
+    p.set("id", String(id));
+    if (activePath && activePath !== "fleet") p.set("path", activePath);
+    return "?" + p.toString();
+  }
+
   function syncUrl(id) {
     const n = Number(id);
     if (!Number.isInteger(n) || n < 1 || n > 9999) return;
     const url = new URL(location.href);
-    url.searchParams.set("id", String(n));
+    url.search = pathSearch(n).slice(1);
     url.hash = "";
     const next = url.pathname + url.search;
     if (next === location.pathname + location.search && !location.hash) return;
-    history.replaceState({ id: n }, "", next);
+    history.replaceState({ id: n, path: activePath }, "", next);
   }
 
   function syncColophon(addr) {
@@ -382,7 +399,7 @@
     if (twin) {
       const a = document.createElement("a");
       a.className = "caption-id" + (id < twin ? " is-lo" : " is-hi");
-      a.href = "?id=" + twin;
+      a.href = pathSearch(twin);
       a.textContent = pad4(id);
       a.setAttribute("aria-label", "Argonaut " + pad4(id) + ", corresponding print");
       a.addEventListener("click", function (ev) {
@@ -1247,6 +1264,46 @@
     },
   });
 
+  const pathsEl = document.getElementById("paths");
+
+  function listForPath(name) {
+    if (!name || name === "fleet") return null;
+    if (!pathLists) return null;
+    const list = pathLists[name];
+    return list && list.length ? list : null;
+  }
+
+  function markPathButtons() {
+    if (!pathsEl) return;
+    pathsEl.querySelectorAll("[data-path]").forEach(function (btn) {
+      const on = btn.getAttribute("data-path") === activePath;
+      btn.classList.toggle("is-on", on);
+      if (on) btn.setAttribute("aria-current", "true");
+      else btn.removeAttribute("aria-current");
+    });
+  }
+
+  function adoptPath(name, opts) {
+    const next = paths.parse(name);
+    const list = listForPath(next);
+    if (next !== "fleet" && !list) return false;
+    if (next === activePath && !(opts && opts.force)) return false;
+    activePath = next;
+    player.setList(list);
+    markPathButtons();
+    return true;
+  }
+
+  function walkPath(name) {
+    const next = paths.parse(name);
+    if (next === activePath) return;
+    const from = player.getId();
+    if (!adoptPath(next)) return;
+    const dest = player.after(from, 1);
+    syncUrl(dest);
+    player.goto(dest, { keepPlay: player.isPlaying() }).catch(function () {});
+  }
+
   toggleBtn.addEventListener("click", function () {
     releaseIdBox();
     if (filmPlaying) stopFilm();
@@ -1281,6 +1338,16 @@
     if (filmPlaying) stopFilm();
     player.next().catch(function () {});
   });
+  if (pathsEl) {
+    pathsEl.addEventListener("click", function (ev) {
+      const btn = ev.target.closest("[data-path]");
+      if (!btn || mode !== "watch") return;
+      walkPath(btn.getAttribute("data-path"));
+    });
+    pathsEl.addEventListener("focusin", function () {
+      if (mode === "watch") showChrome();
+    });
+  }
 
   plates.setOnSelect(function (_i, iso, row) {
     if (mode !== "apart") return;
@@ -1434,11 +1501,16 @@
 
   let chromeTimer = 0;
   const controlsEl = salon.querySelector(".controls");
+  const wordmarkEl = salon.querySelector(".wordmark");
 
   function hideChrome() {
     if (document.activeElement === idInput) return;
     const mouseHover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
-    if (mouseHover && controlsEl && controlsEl.matches(":hover")) {
+    if (mouseHover && (
+      (controlsEl && controlsEl.matches(":hover")) ||
+      (pathsEl && pathsEl.matches(":hover")) ||
+      (wordmarkEl && wordmarkEl.matches(":hover"))
+    )) {
       chromeTimer = window.setTimeout(hideChrome, 3000);
       return;
     }
@@ -1453,8 +1525,8 @@
 
   document.addEventListener("pointerdown", function (ev) {
     const t = ev.target;
-    if (t.closest("button, a, input, label, .controls, .modes, .plate, #btn-sheet")) {
-      if (salon.classList.contains("chrome-on") || t.closest(".modes, #btn-sheet, .controls")) showChrome();
+    if (t.closest("button, a, input, label, .controls, .modes, .paths, .wordmark, .plate, #btn-sheet")) {
+      if (salon.classList.contains("chrome-on") || t.closest(".modes, #btn-sheet, .controls, .paths, .wordmark")) showChrome();
       return;
     }
     showChrome();
@@ -1463,7 +1535,7 @@
     if (ev.pointerType === "touch") return;
     const t = ev.target;
     if (!t || !t.closest) return;
-    if (t.closest(".controls")) {
+    if (t.closest(".controls, .paths, .wordmark")) {
       showChrome();
       return;
     }
@@ -1471,6 +1543,13 @@
     const wrap = document.getElementById("stage-wrap");
     if (wrap && wrap.contains(t)) showChrome();
   }, { passive: true });
+  if (wordmarkEl) {
+    wordmarkEl.addEventListener("pointerenter", function (ev) {
+      if (ev.pointerType === "touch") return;
+      if (mode !== "watch") return;
+      showChrome();
+    });
+  }
 
   (function bindPullReload() {
     const PULL_MIN = 48;
@@ -1664,6 +1743,19 @@
       twinKind = kind;
       return map;
     })(table.bytes);
+    pathLists = paths.build(table.bytes);
+    (function applyBootPath() {
+      const wanted = parsePathFromUrl();
+      const from = player.getId();
+      const name = (wanted === "fleet" || listForPath(wanted)) ? wanted : "fleet";
+      adoptPath(name, { force: true });
+      const list = listForPath(name);
+      if (list && list.indexOf(from) < 0) {
+        player.goto(player.after(from, 1), { keepPlay: player.isPlaying() }).catch(function () {});
+      } else {
+        syncUrl(from);
+      }
+    })();
     if (lastFrame && lastFrame.id) {
       setCaption(lastFrame.id);
       if (mode === "watch" && !player.isPlaying()) bindTwinProof(lastFrame);
@@ -1679,14 +1771,16 @@
     status.textContent = "trait snapshot missing — run node scripts/fetch-traits.mjs";
   });
 
-  window.addEventListener("hashchange", function () {
+  function applyLocation() {
     const n = parseDeepId();
+    const wanted = parsePathFromUrl();
+    const name = (wanted === "fleet" || listForPath(wanted)) ? wanted : "fleet";
+    adoptPath(name, { force: true });
     if (n !== player.getId()) player.goto(n).catch(function () {});
-  });
-  window.addEventListener("popstate", function () {
-    const n = parseDeepId();
-    if (n !== player.getId()) player.goto(n).catch(function () {});
-  });
+    else syncUrl(n);
+  }
+  window.addEventListener("hashchange", applyLocation);
+  window.addEventListener("popstate", applyLocation);
 
   fitPrint();
   window.addEventListener("resize", fitPrint);

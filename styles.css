@@ -93,6 +93,59 @@ body {
   color: var(--gold);
 }
 
+.paths {
+  margin: 0.4rem 0 0;
+  display: none;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.15rem 0.85rem;
+  min-height: 1.15rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.salon:not(.take-apart):not(.draw-mode) .paths {
+  display: flex;
+}
+
+.salon.chrome-on:not(.take-apart):not(.draw-mode) .paths {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.paths button {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0.05rem 0;
+  border-bottom: 1px solid transparent;
+}
+
+.paths button:hover,
+.paths button:focus-visible {
+  color: var(--ink);
+}
+
+.paths button.is-on {
+  color: var(--ink);
+  border-bottom-color: currentColor;
+}
+
+@media (max-width: 44rem) {
+  .paths {
+    gap: 0.1rem 0.5rem;
+  }
+
+  .paths button {
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+  }
+}
+
 .stage-wrap {
   display: flex;
   flex-direction: column;
