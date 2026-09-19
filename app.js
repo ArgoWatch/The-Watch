@@ -870,6 +870,7 @@
 
   function stopFilmIfPointerLeft(ev) {
     if (!filmPlaying) return;
+    if (trip && trip.resume) return;
     if (ev && ev.pointerType === "touch") return;
     if (performance.now() - filmStartedAt < 120) return;
     if (ev && pointerInStage(ev)) return;
