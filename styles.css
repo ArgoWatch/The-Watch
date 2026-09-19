@@ -555,21 +555,14 @@ a.caption-id:focus {
   align-items: center;
   gap: 0.15rem 0.85rem;
   min-height: 1.6rem;
-  opacity: 1;
-  pointer-events: auto;
+  opacity: 0;
+  pointer-events: none;
   transition: opacity 180ms ease;
 }
 
-@media (hover: none) and (pointer: coarse) {
-  .controls {
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .salon.chrome-on .controls {
-    opacity: 1;
-    pointer-events: auto;
-  }
+.salon.chrome-on .controls {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 button,

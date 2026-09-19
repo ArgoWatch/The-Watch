@@ -1432,28 +1432,45 @@
     }
   });
 
-  const touchChrome = window.matchMedia("(hover: none)").matches;
   let chromeTimer = 0;
+  const controlsEl = salon.querySelector(".controls");
+
+  function hideChrome() {
+    if (document.activeElement === idInput) return;
+    const mouseHover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+    if (mouseHover && controlsEl && controlsEl.matches(":hover")) {
+      chromeTimer = window.setTimeout(hideChrome, 3000);
+      return;
+    }
+    salon.classList.remove("chrome-on");
+  }
 
   function showChrome() {
     salon.classList.add("chrome-on");
     window.clearTimeout(chromeTimer);
-    chromeTimer = window.setTimeout(function () {
-      if (document.activeElement === idInput) return;
-      salon.classList.remove("chrome-on");
-    }, 3000);
+    chromeTimer = window.setTimeout(hideChrome, 3000);
   }
 
-  if (touchChrome) {
-    document.addEventListener("pointerdown", function (ev) {
-      const t = ev.target;
-      if (t.closest("button, a, input, label, .controls, .modes, .plate, #btn-sheet")) {
-        if (salon.classList.contains("chrome-on") || t.closest(".modes, #btn-sheet")) showChrome();
-        return;
-      }
+  document.addEventListener("pointerdown", function (ev) {
+    const t = ev.target;
+    if (t.closest("button, a, input, label, .controls, .modes, .plate, #btn-sheet")) {
+      if (salon.classList.contains("chrome-on") || t.closest(".modes, #btn-sheet, .controls")) showChrome();
+      return;
+    }
+    showChrome();
+  });
+  document.addEventListener("pointermove", function (ev) {
+    if (ev.pointerType === "touch") return;
+    const t = ev.target;
+    if (!t || !t.closest) return;
+    if (t.closest(".controls")) {
       showChrome();
-    });
-  }
+      return;
+    }
+    if (salon.classList.contains("chrome-on")) return;
+    const wrap = document.getElementById("stage-wrap");
+    if (wrap && wrap.contains(t)) showChrome();
+  }, { passive: true });
 
   (function bindPullReload() {
     const PULL_MIN = 48;
@@ -1540,14 +1557,12 @@
     }
   });
   idInput.addEventListener("focus", function () {
-    if (touchChrome) {
-      window.clearTimeout(chromeTimer);
-      salon.classList.add("chrome-on");
-    }
+    window.clearTimeout(chromeTimer);
+    salon.classList.add("chrome-on");
   });
   idInput.addEventListener("blur", function () {
     readIdBox();
-    if (touchChrome) showChrome();
+    showChrome();
   });
 
   document.addEventListener("keydown", function (ev) {
