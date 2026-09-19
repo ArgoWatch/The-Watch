@@ -62,6 +62,7 @@
   let mode = "watch";
   let activePath = "fleet";
   let pathLists = null;
+  let pathTimer = 0;
   let lastFrame = { id: 1, attributes: [], unminted: true };
   let canaryId = 0;
   let canarySampled = false;
@@ -455,6 +456,10 @@
     modeDraw.classList.toggle("is-on", mode === "draw");
     modeDraw.classList.toggle("is-playing", drawing);
     modeDraw.setAttribute("aria-pressed", drawing ? "true" : "false");
+    if (mode !== "watch") {
+      salon.classList.remove("paths-on");
+      window.clearTimeout(pathTimer);
+    }
   }
 
   function reassemble() {
@@ -1345,7 +1350,7 @@
       walkPath(btn.getAttribute("data-path"));
     });
     pathsEl.addEventListener("focusin", function () {
-      if (mode === "watch") showChrome();
+      if (mode === "watch") showPaths();
     });
   }
 
@@ -1502,15 +1507,12 @@
   let chromeTimer = 0;
   const controlsEl = salon.querySelector(".controls");
   const wordmarkEl = salon.querySelector(".wordmark");
+  const playNavEl = salon.querySelector(".play-nav");
 
   function hideChrome() {
     if (document.activeElement === idInput) return;
     const mouseHover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
-    if (mouseHover && (
-      (controlsEl && controlsEl.matches(":hover")) ||
-      (pathsEl && pathsEl.matches(":hover")) ||
-      (wordmarkEl && wordmarkEl.matches(":hover"))
-    )) {
+    if (mouseHover && controlsEl && controlsEl.matches(":hover")) {
       chromeTimer = window.setTimeout(hideChrome, 3000);
       return;
     }
@@ -1523,10 +1525,36 @@
     chromeTimer = window.setTimeout(hideChrome, 3000);
   }
 
+  function hidePaths() {
+    const mouseHover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+    if (mouseHover && playNavEl && playNavEl.matches(":hover")) {
+      pathTimer = window.setTimeout(hidePaths, 3000);
+      return;
+    }
+    salon.classList.remove("paths-on");
+  }
+
+  function showPaths() {
+    if (mode !== "watch") return;
+    salon.classList.add("paths-on");
+    window.clearTimeout(pathTimer);
+    pathTimer = window.setTimeout(hidePaths, 3000);
+  }
+
   document.addEventListener("pointerdown", function (ev) {
     const t = ev.target;
-    if (t.closest("button, a, input, label, .controls, .modes, .paths, .wordmark, .plate, #btn-sheet")) {
-      if (salon.classList.contains("chrome-on") || t.closest(".modes, #btn-sheet, .controls, .paths, .wordmark")) showChrome();
+    if (t.closest(".wordmark")) {
+      if (ev.pointerType === "touch" || !window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+        showPaths();
+      }
+      return;
+    }
+    if (t.closest(".paths")) {
+      showPaths();
+      return;
+    }
+    if (t.closest("button, a, input, label, .controls, .modes, .plate, #btn-sheet")) {
+      if (salon.classList.contains("chrome-on") || t.closest(".modes, #btn-sheet, .controls")) showChrome();
       return;
     }
     showChrome();
@@ -1535,7 +1563,7 @@
     if (ev.pointerType === "touch") return;
     const t = ev.target;
     if (!t || !t.closest) return;
-    if (t.closest(".controls, .paths, .wordmark")) {
+    if (t.closest(".controls")) {
       showChrome();
       return;
     }
@@ -1543,11 +1571,14 @@
     const wrap = document.getElementById("stage-wrap");
     if (wrap && wrap.contains(t)) showChrome();
   }, { passive: true });
-  if (wordmarkEl) {
-    wordmarkEl.addEventListener("pointerenter", function (ev) {
+  if (playNavEl) {
+    playNavEl.addEventListener("pointerenter", function (ev) {
       if (ev.pointerType === "touch") return;
-      if (mode !== "watch") return;
-      showChrome();
+      showPaths();
+    });
+    playNavEl.addEventListener("pointerleave", function (ev) {
+      if (ev.pointerType === "touch") return;
+      showPaths();
     });
   }
 

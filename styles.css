@@ -69,11 +69,19 @@ body {
   color: var(--gold-dim);
 }
 
-.modes {
+.play-nav {
   margin: 0.35rem 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.modes {
+  margin: 0;
   display: flex;
   justify-content: center;
   gap: 1.5rem;
+  padding: 0.15rem 0.4rem 0.2rem;
 }
 
 .modes button {
@@ -110,7 +118,14 @@ body {
   display: flex;
 }
 
-.salon.chrome-on:not(.take-apart):not(.draw-mode) .paths {
+@media (hover: hover) and (pointer: fine) {
+  .salon:not(.take-apart):not(.draw-mode) .play-nav:hover .paths {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+.salon.paths-on:not(.take-apart):not(.draw-mode) .paths {
   opacity: 1;
   pointer-events: auto;
 }
