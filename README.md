@@ -8,7 +8,7 @@ Official collection: [Harbor](https://argonauts.musefacktory.com)
 
 ## Use
 
-- **Play** walks the fleet. Hover the picture (or tap it on a phone) for controls; they fade after 3s. Hover Play / Strip / Draw for paths; on a phone, tap Play. Clicking a path starts walking it. The title returns to the start of the current path.
+- **Play** walks the fleet. Hover the picture (or tap it on a phone) for controls; they fade after 3s. Hover Play / Strip / Draw for paths; on a phone, tap Play. Clicking a path starts it from the lowest id. The title returns to the start of the current path.
   - Fleet is ids 1–9999.
   - Unclothed has no Cloak, Relic, Sight, Artifact, or Crown.
   - Cloak is exactly a cloak among the worn slots.

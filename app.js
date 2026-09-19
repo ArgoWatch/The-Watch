@@ -1304,9 +1304,8 @@
   function walkPath(name) {
     const next = paths.parse(name);
     if (next === activePath) return;
-    const from = player.getId();
     if (!adoptPath(next)) return;
-    const dest = player.after(from, 1);
+    const dest = startOfPath();
     syncUrl(dest);
     player.goto(dest, { keepPlay: true }).then(function () {
       player.play();
