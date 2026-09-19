@@ -208,6 +208,7 @@ button.wordmark:focus-visible {
 
 .crew {
   display: none;
+  position: relative;
   flex-direction: column;
   align-items: center;
   gap: 0.25rem;
@@ -304,6 +305,17 @@ button.wordmark:focus-visible {
 .crew-add[hidden],
 .crew-more[hidden] {
   display: none;
+}
+
+.crew-go {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
 }
 
 .crew-more,

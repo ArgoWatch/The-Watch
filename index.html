@@ -8,7 +8,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'none'; connect-src 'self' https://cloudflare-eth.com https://ethereum.publicnode.com https://ethereum-rpc.publicnode.com https://1rpc.io https://rpc.mevblocker.io https://eth.drpc.org https://rpc.flashbots.net; base-uri 'none'; form-action 'none'; object-src 'none'" />
   <title>The Watch — unofficial Argonauts player</title>
   <meta name="description" content="Unofficial fan player for on-chain Argonauts. Art and copyright stay with ACK / Muse Facktory." />
-  <link rel="stylesheet" href="styles.css?v=61" />
+  <link rel="stylesheet" href="styles.css?v=62" />
 </head>
 <body>
   <div class="salon">
@@ -30,10 +30,11 @@
           <button type="button" data-path="artifact">Artifact</button>
           <button type="button" data-path="crown">Crown</button>
         </nav>
-        <div class="crew" id="crew">
+        <form class="crew" id="crew" action="#" method="get" novalidate>
           <div class="crew-fields" id="crew-fields"></div>
+          <button type="submit" class="crew-go" tabindex="-1">Go</button>
           <button type="button" class="crew-more" id="crew-more" hidden aria-label="Change addresses">+</button>
-        </div>
+        </form>
         <div class="path-strip" id="path-strip" hidden></div>
       </div>
       <button type="button" id="btn-sheet">Sheet</button>
@@ -80,15 +81,15 @@
     </footer>
   </div>
 
-  <script src="lib/chain.js?v=61"></script>
-  <script src="lib/decode.js?v=61"></script>
-  <script src="lib/family.js?v=61"></script>
-  <script src="lib/paths.js?v=61"></script>
-  <script src="lib/crew.js?v=61"></script>
-  <script src="lib/playback.js?v=61"></script>
-  <script src="lib/explode.js?v=61"></script>
-  <script src="lib/draw.js?v=61"></script>
-  <script src="lib/sheet.js?v=61"></script>
-  <script src="app.js?v=61"></script>
+  <script src="lib/chain.js?v=62"></script>
+  <script src="lib/decode.js?v=62"></script>
+  <script src="lib/family.js?v=62"></script>
+  <script src="lib/paths.js?v=62"></script>
+  <script src="lib/crew.js?v=62"></script>
+  <script src="lib/playback.js?v=62"></script>
+  <script src="lib/explode.js?v=62"></script>
+  <script src="lib/draw.js?v=62"></script>
+  <script src="lib/sheet.js?v=62"></script>
+  <script src="app.js?v=62"></script>
 </body>
 </html>

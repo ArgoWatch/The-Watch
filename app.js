@@ -1801,6 +1801,7 @@
     const moreOn = !!(crewIds && !crewEditing && !crewBusy);
     root.classList.toggle("has-more", moreOn);
     if (more) more.hidden = !moreOn;
+    if (idInput) idInput.tabIndex = crewEditing ? -1 : 0;
   }
 
   function stashAndLeave() {
@@ -2081,6 +2082,9 @@
       input.className = "crew-addr";
       input.spellcheck = false;
       input.autocomplete = "off";
+      input.setAttribute("autocapitalize", "off");
+      input.setAttribute("autocorrect", "off");
+      input.setAttribute("enterkeyhint", "go");
       input.setAttribute("aria-label", "Crew address");
       if (value) input.value = value;
       const plus = document.createElement("button");
@@ -2183,11 +2187,21 @@
     }
 
     function submitCrew() {
+      if (!crewEditing) return;
       const text = collected();
       crewEditing = false;
       crewRoot.classList.remove("is-edit");
+      if (document.activeElement && document.activeElement.blur) {
+        document.activeElement.blur();
+      }
       loadCrew(text, { id: player.getId() }).catch(function () {});
     }
+
+    crewRoot.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      submitCrew();
+    });
 
     const more = document.getElementById("crew-more");
     if (more) {
