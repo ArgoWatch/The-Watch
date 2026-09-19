@@ -117,7 +117,7 @@ button.wordmark:focus-visible {
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
-  gap: 0.15rem 0.85rem;
+  gap: 0.2rem 2.1rem;
   min-height: 1.15rem;
   opacity: 0;
   pointer-events: none;
@@ -144,10 +144,12 @@ button.wordmark:focus-visible {
 .paths button {
   font-family: var(--font-mono);
   font-size: 0.78rem;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.07em;
+  word-spacing: -0.32em;
+  white-space: nowrap;
   text-transform: uppercase;
   color: var(--muted);
-  padding: 0.05rem 0;
+  padding: 0.05rem 0.02rem;
   border-bottom: 1px solid transparent;
 }
 
@@ -187,10 +189,14 @@ button.wordmark:focus-visible {
   }
 }
 
-#btn-crew.is-loading::after {
-  content: " …";
-  letter-spacing: 0;
-  font-weight: normal;
+#btn-crew.is-loading {
+  animation: crew-flash 1.1s ease-in-out infinite;
+}
+
+@keyframes crew-flash {
+  0%,
+  100% { color: var(--muted); }
+  50% { color: var(--gold); }
 }
 
 .crew-fields {

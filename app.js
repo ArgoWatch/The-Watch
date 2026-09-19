@@ -1514,6 +1514,8 @@
     pathsEl.replaceChildren();
     const items = [];
     if (crewIds) {
+      items.push({ id: "fleet", label: "Fleet" });
+      items.push({ id: "watch", label: "Build" });
       items.push({ id: "dealt", label: "As dealt" });
       if (echoLabel && crewLists && crewLists.echo && crewLists.echo.length) {
         items.push({ id: "echo", label: echoLabel });
@@ -1524,7 +1526,7 @@
       if (arrangedList && arrangedList.length) {
         items.push({ id: "arranged", label: "As arranged" });
       }
-    } else {
+    } else if (!crewEditing && !crewBusy) {
       items.push({ id: "fleet", label: "Fleet" });
       items.push({ id: "unclothed", label: "Unclothed" });
       items.push({ id: "cloak", label: "Cloak" });
@@ -1658,6 +1660,7 @@
     }
     crewBusy = true;
     salon.classList.add("crew-busy");
+    rebuildPathNav();
     showPaths();
     setModeButtons();
     return crew.holdings(addrs).then(function (got) {
@@ -1709,6 +1712,7 @@
     }).then(function () {
       crewBusy = false;
       salon.classList.remove("crew-busy");
+      rebuildPathNav();
       setModeButtons();
       showPaths();
     });
@@ -1844,6 +1848,7 @@
       if (crewAddresses) {
         for (let i = 1; i < crewAddresses.length; i++) addRow(crewAddresses[i], true);
       }
+      rebuildPathNav();
       showPaths();
       setModeButtons();
       if (first) {
@@ -1855,12 +1860,14 @@
     function closeEditor() {
       crewEditing = false;
       crewRoot.classList.remove("is-edit");
+      rebuildPathNav();
       setModeButtons();
     }
 
     function submitCrew() {
       const text = collected();
-      closeEditor();
+      crewEditing = false;
+      crewRoot.classList.remove("is-edit");
       loadCrew(text, { id: player.getId() }).catch(function () {});
     }
 

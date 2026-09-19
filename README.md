@@ -16,7 +16,7 @@ Official collection: [Harbor](https://argonauts.musefacktory.com)
   - Sight is exactly a sight among the worn slots.
   - Artifact is exactly an artifact among the worn slots.
   - Crown is exactly a crown among the worn slots.
-- **Crew** sits with Play / Strip / Draw. The address field stays under the path line. Paste a `0x` address (ACK’s is offered as an example); **+** adds another field. Default order is cloak-last, fewest worn first. As dealt is id order. Echo appears only when a trait value repeats. Drag the strip for As arranged. Click Crew again to leave. The title returns to the start of the current show.
+- **Crew** sits with Play / Strip / Draw. Click Crew to show only the address field (ACK’s as the example); **+** adds another. Crew flashes while holdings load. Then: **Fleet** returns to the main paths; **Build** is simplest-to-most-worn; As dealt is id order; Echo appears only when a trait value repeats; As they arrived; drag the strip for As arranged. Click Crew again to leave. The title returns to the start of the current show.
 - **Strip** lists traits. Click a worn piece to isolate it. Print opens that Argonaut on Harbor.
 - **Draw** paints the picture pixel by pixel. **Sheet** downloads 24×24 graph paper.
 
