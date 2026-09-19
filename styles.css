@@ -160,6 +160,114 @@ button.wordmark:focus-visible {
   border-bottom-color: currentColor;
 }
 
+.crew {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0.35rem 0 0;
+  min-height: 1.1rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.salon.paths-on:not(.take-apart):not(.draw-mode) .crew {
+  display: flex;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .salon:not(.take-apart):not(.draw-mode) .play-nav:hover .crew {
+    display: flex;
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+#btn-crew {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0.05rem 0;
+  border-bottom: 1px solid transparent;
+}
+
+#btn-crew.is-on {
+  color: var(--ink);
+  border-bottom-color: currentColor;
+}
+
+#crew-input {
+  display: none;
+  width: min(18rem, 86vw);
+  padding: 0.15rem 0;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  text-align: center;
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+}
+
+.crew.is-edit #crew-input {
+  display: block;
+}
+
+.path-strip {
+  display: none;
+  max-width: min(28rem, 92vw);
+  margin: 0.4rem 0 0;
+  padding: 0.1rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  touch-action: pan-x;
+  transition: opacity 180ms ease;
+}
+
+.salon.paths-on:not(.take-apart):not(.draw-mode) .path-strip:not([hidden]) {
+  display: block;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .salon:not(.take-apart):not(.draw-mode) .play-nav:hover .path-strip:not([hidden]) {
+    display: block;
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+.path-strip button {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  margin: 0 3px 0 0;
+  padding: 0;
+  vertical-align: top;
+  border-bottom: 1px solid transparent;
+  image-rendering: pixelated;
+}
+
+.path-strip button.is-on {
+  border-bottom-color: var(--gold);
+}
+
+.path-strip .pixel,
+.path-strip svg {
+  width: 24px;
+  height: 24px;
+  display: block;
+  image-rendering: pixelated;
+}
+
 @media (max-width: 44rem) {
   .paths {
     gap: 0.1rem 0.5rem;

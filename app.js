@@ -1,6 +1,6 @@
 (function () {
   "use strict";
-  const { chain, decode, playback, explode, draw, sheet, family, paths } = window.TheScore;
+  const { chain, decode, playback, explode, draw, sheet, family, paths, crew } = window.TheScore;
 
   const salon = document.querySelector(".salon");
   const stage = document.getElementById("stage");
@@ -54,8 +54,10 @@
       return Array.from(this.bytes.slice(i, i + 7));
     },
     valueName: function (slot, value) {
-      if (!value) return "None";
-      return this.names[slot + ":" + value] || null;
+      const named = this.names[slot + ":" + value];
+      if (named) return named;
+      if (slot >= 2 && !value) return "None";
+      return null;
     },
   };
 
@@ -63,6 +65,13 @@
   let activePath = "fleet";
   let pathLists = null;
   let pathTimer = 0;
+  let crewIds = null;
+  let crewAddresses = null;
+  let crewLists = null;
+  let echoLabel = "";
+  let arrangedList = null;
+  let crewFirstIn = null;
+  let stripSeq = 0;
   let lastFrame = { id: 1, attributes: [], unminted: true };
   let canaryId = 0;
   let canarySampled = false;
@@ -113,9 +122,33 @@
     return 1;
   }
 
+  function parseCrewFromUrl() {
+    const q = new URLSearchParams(location.search);
+    const raw = q.get("crew");
+    if (!raw || !crew || !crew.parseAddresses) return [];
+    return crew.parseAddresses(raw.replace(/[.+]/g, " "));
+  }
+
+  function parseOrderFromUrl() {
+    const q = new URLSearchParams(location.search).get("order");
+    if (!q) return null;
+    const out = [];
+    String(q).split(/[.,]/).forEach(function (s) {
+      const n = Number(s);
+      if (Number.isInteger(n) && n >= 1 && n <= 9999) out.push(n);
+    });
+    return out.length ? out : null;
+  }
+
   function parsePathFromUrl() {
     const q = new URLSearchParams(location.search);
     const raw = q.get("path");
+    if (crewIds) {
+      const s = String(raw || "watch").toLowerCase();
+      if (s === "fleet") return "fleet";
+      if (s === "dealt" || s === "echo" || s === "arrived" || s === "arranged" || s === "watch") return s;
+      return "watch";
+    }
     if (raw) return paths.parse(raw);
     if (q.get("bones") === "1") return "unclothed";
     return "fleet";
@@ -124,7 +157,14 @@
   function pathSearch(id) {
     const p = new URLSearchParams();
     p.set("id", String(id));
-    if (activePath && activePath !== "fleet") p.set("path", activePath);
+    if (crewAddresses && crewAddresses.length) {
+      p.set("crew", crewAddresses.join(","));
+      if (activePath && activePath !== "watch") p.set("path", activePath);
+      else p.set("path", "watch");
+      if (arrangedList && arrangedList.length) p.set("order", arrangedList.join("."));
+    } else if (activePath && activePath !== "fleet") {
+      p.set("path", activePath);
+    }
     return "?" + p.toString();
   }
 
@@ -1257,7 +1297,8 @@
       const slot = table.slots.findIndex(function (s) {
         return s.toLowerCase() === name;
       });
-      if (slot < 0 || !t[slot]) return;
+      if (slot < 0) return;
+      if (slot >= 2 && !t[slot]) return;
       const val = String(a.value || "");
       if (!val || val === "None" || val === "Unknown") return;
       table.names[slot + ":" + t[slot]] = val;
@@ -1302,6 +1343,7 @@
     }
     setCaption(frame.id);
     syncUrl(frame.id);
+    markStripCurrent();
     syncColophon(frame.renderer);
     if (mode === "draw") {
       plotter.load(frame.unminted ? "" : frame.svg || "");
@@ -1314,8 +1356,7 @@
       loadIsolation(frame.id, frame.svg);
       if (plates.warm && table.row) {
         const n = Number(frame.id);
-        [n - 1, n + 1].forEach(function (x) {
-          const id = x < 1 ? 9999 : x > 9999 ? 1 : x;
+        [player.after(n, -1), player.after(n, 1)].forEach(function (id) {
           const t = table.row(id);
           if (t) plates.warm(t);
         });
@@ -1376,6 +1417,11 @@
   const pathsEl = document.getElementById("paths");
 
   function listForPath(name) {
+    if (crewIds && crewLists) {
+      if (name === "fleet") return null;
+      const list = crewLists[name];
+      return list && list.length ? list : null;
+    }
     if (!name || name === "fleet") return null;
     if (!pathLists) return null;
     const list = pathLists[name];
@@ -1393,18 +1439,24 @@
   }
 
   function adoptPath(name, opts) {
-    const next = paths.parse(name);
+    let next = crewIds ? String(name || "watch").toLowerCase() : paths.parse(name);
+    if (crewIds && next === "fleet") return false;
     const list = listForPath(next);
     if (next !== "fleet" && !list) return false;
     if (next === activePath && !(opts && opts.force)) return false;
     activePath = next;
     player.setList(list);
     markPathButtons();
+    paintStrip();
     return true;
   }
 
   function walkPath(name) {
-    const next = paths.parse(name);
+    if (crewIds && String(name) === "fleet") {
+      clearCrew();
+      return;
+    }
+    const next = crewIds ? String(name || "watch").toLowerCase() : paths.parse(name);
     if (next === activePath) return;
     abandonTrip();
     if (!adoptPath(next)) return;
@@ -1418,10 +1470,198 @@
   }
 
   function startOfPath() {
-    if (activePath === "fleet") return 1;
+    if (!crewIds && activePath === "fleet") return 1;
     const list = listForPath(activePath);
     if (list && list.length) return list[0];
+    if (crewIds && crewIds.length) return crewIds[0];
     return 1;
+  }
+
+  function slotNameOf(slot, v) {
+    const named = table.names[slot + ":" + v];
+    if (named) return named;
+    if (slot >= 2 && !v) return "None";
+    return table.valueName(slot, v);
+  }
+
+  function rebuildPathNav() {
+    if (!pathsEl) return;
+    pathsEl.replaceChildren();
+    const items = [];
+    if (crewIds) {
+      items.push({ id: "fleet", label: "Fleet" });
+      items.push({ id: "watch", label: "The Watch" });
+      items.push({ id: "dealt", label: "As dealt" });
+      if (echoLabel && crewLists && crewLists.echo && crewLists.echo.length) {
+        items.push({ id: "echo", label: echoLabel });
+      }
+      if (crewLists && crewLists.arrived && crewLists.arrived.length) {
+        items.push({ id: "arrived", label: "As they arrived" });
+      }
+      if (arrangedList && arrangedList.length) {
+        items.push({ id: "arranged", label: "As arranged" });
+      }
+    } else {
+      items.push({ id: "fleet", label: "Fleet" });
+      items.push({ id: "unclothed", label: "Unclothed" });
+      items.push({ id: "cloak", label: "Cloak" });
+      items.push({ id: "relic", label: "Relic" });
+      items.push({ id: "sight", label: "Sight" });
+      items.push({ id: "artifact", label: "Artifact" });
+      items.push({ id: "crown", label: "Crown" });
+    }
+    items.forEach(function (item) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.setAttribute("data-path", item.id);
+      btn.textContent = item.label;
+      pathsEl.appendChild(btn);
+    });
+    markPathButtons();
+    const crewBtn = document.getElementById("btn-crew");
+    if (crewBtn) crewBtn.classList.toggle("is-on", !!crewIds);
+  }
+
+  function buildCrewLists(ids, firstIn) {
+    const rowOf = function (id) {
+      return table.row(id);
+    };
+    const watch = crew.watchSort(ids, rowOf);
+    const dealt = crew.dealtSort(ids);
+    const arrived = crew.arrivedSort(ids, firstIn);
+    let pick = crew.echoPick(ids, rowOf, slotNameOf);
+    echoLabel = pick ? pick.label : "";
+    const echo = pick ? crew.echoIds(ids, pick, rowOf) : [];
+    crewLists = {
+      watch: watch,
+      dealt: dealt,
+      echo: echo,
+      arrived: arrived,
+      arranged: arrangedList,
+    };
+  }
+
+  function paintStrip() {
+    const host = document.getElementById("path-strip");
+    if (!host) return;
+    if (!crewIds || !crewIds.length) {
+      host.hidden = true;
+      host.replaceChildren();
+      return;
+    }
+    const list = listForPath(activePath) || crewIds;
+    host.hidden = false;
+    host.replaceChildren();
+    const seq = ++stripSeq;
+    const cur = player.getId();
+    list.forEach(function (id) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.setAttribute("data-id", String(id));
+      btn.setAttribute("aria-label", "Argonaut " + pad4(id));
+      if (id === cur) btn.classList.add("is-on");
+      const well = document.createElement("div");
+      well.className = "pixel";
+      btn.appendChild(well);
+      host.appendChild(btn);
+      loadArt(id).then(function (frame) {
+        if (seq !== stripSeq) return;
+        if (!frame || !frame.svg || frame.unminted) return;
+        try {
+          well.replaceChildren(decode.sanitizeSvg(frame.svg));
+        } catch (_) {}
+      }).catch(function () {});
+    });
+  }
+
+  function markStripCurrent() {
+    const host = document.getElementById("path-strip");
+    if (!host || host.hidden) return;
+    const id = player.getId();
+    host.querySelectorAll("[data-id]").forEach(function (btn) {
+      btn.classList.toggle("is-on", Number(btn.getAttribute("data-id")) === id);
+    });
+  }
+
+  function applyArranged(ids) {
+    arrangedList = ids.slice();
+    if (!crewLists) crewLists = {};
+    crewLists.arranged = arrangedList;
+    rebuildPathNav();
+    abandonTrip();
+    adoptPath("arranged", { force: true });
+    syncUrl(player.getId());
+  }
+
+  function clearCrew() {
+    abandonTrip();
+    crewIds = null;
+    crewAddresses = null;
+    crewLists = null;
+    echoLabel = "";
+    arrangedList = null;
+    crewFirstIn = null;
+    const crewRoot = document.getElementById("crew");
+    const crewInput = document.getElementById("crew-input");
+    if (crewRoot) crewRoot.classList.remove("is-edit");
+    if (crewInput) crewInput.value = "";
+    rebuildPathNav();
+    adoptPath("fleet", { force: true });
+    paintStrip();
+    syncUrl(player.getId());
+  }
+
+  function loadCrew(text, opts) {
+    opts = opts || {};
+    if (!crew || !crew.holdings) return Promise.resolve();
+    const addrs = crew.parseAddresses(text);
+    if (!addrs.length) {
+      if (!opts.fromUrl) clearCrew();
+      return Promise.resolve();
+    }
+    status.textContent = "reading chain…";
+    return crew.holdings(addrs).then(function (got) {
+      if (!got.ids.length) {
+        status.textContent = "";
+        return;
+      }
+      crewAddresses = got.addresses;
+      crewIds = got.ids;
+      crewFirstIn = got.firstIn;
+      if (opts.order && opts.order.length) {
+        const allow = Object.create(null);
+        got.ids.forEach(function (id) {
+          allow[id] = true;
+        });
+        arrangedList = opts.order.filter(function (id) {
+          return allow[id];
+        });
+        got.ids.forEach(function (id) {
+          if (arrangedList.indexOf(id) < 0) arrangedList.push(id);
+        });
+      }
+      return Promise.all(got.ids.slice(0, 5).map(function (id) {
+        return loadArt(id).catch(function () {});
+      })).then(function () {
+      buildCrewLists(got.ids, got.firstIn);
+      rebuildPathNav();
+      let want = opts.path || "watch";
+      if (want === "echo" && !(crewLists.echo && crewLists.echo.length)) want = "watch";
+      if (want === "arrived" && !(crewLists.arrived && crewLists.arrived.length)) want = "watch";
+      if (want === "arranged" && !(arrangedList && arrangedList.length)) want = "watch";
+      adoptPath(want, { force: true });
+      const list = listForPath(want) || got.ids;
+      let dest = Number(opts.id);
+      if (!dest || list.indexOf(dest) < 0) dest = list[0];
+      status.textContent = "";
+      return player.goto(dest, { keepPlay: opts.keepPlay }).then(function () {
+        paintStrip();
+        syncUrl(dest);
+      });
+      });
+    }).catch(function () {
+      status.textContent = "";
+    });
   }
 
   function restartShow() {
@@ -1478,6 +1718,101 @@
       if (mode === "watch") showPaths();
     });
   }
+
+  (function bindCrew() {
+    const crewRoot = document.getElementById("crew");
+    const crewBtn = document.getElementById("btn-crew");
+    const crewInput = document.getElementById("crew-input");
+    if (!crewRoot || !crewBtn || !crewInput) return;
+    crewBtn.addEventListener("click", function () {
+      crewRoot.classList.toggle("is-edit");
+      showPaths();
+      if (crewRoot.classList.contains("is-edit")) {
+        if (crewAddresses) crewInput.value = crewAddresses.join(", ");
+        crewInput.focus();
+      }
+    });
+    function submitCrew() {
+      const text = crewInput.value;
+      crewRoot.classList.remove("is-edit");
+      loadCrew(text, { id: player.getId() }).catch(function () {});
+    }
+    crewInput.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        submitCrew();
+        crewInput.blur();
+      }
+      if (ev.key === "Escape") {
+        crewRoot.classList.remove("is-edit");
+        crewInput.blur();
+      }
+    });
+    crewInput.addEventListener("focus", function () {
+      showPaths();
+    });
+  })();
+
+  (function bindStrip() {
+    const host = document.getElementById("path-strip");
+    if (!host) return;
+    let drag = null;
+
+    function listNow() {
+      return (listForPath(activePath) || crewIds || []).slice();
+    }
+
+    host.addEventListener("pointerdown", function (ev) {
+      const btn = ev.target.closest("[data-id]");
+      if (!btn || !crewIds) return;
+      drag = {
+        id: Number(btn.getAttribute("data-id")),
+        x: ev.clientX,
+        y: ev.clientY,
+        moved: false,
+        el: btn,
+      };
+      try {
+        btn.setPointerCapture(ev.pointerId);
+      } catch (_) {}
+    });
+    host.addEventListener("pointermove", function (ev) {
+      if (!drag) return;
+      if (Math.abs(ev.clientX - drag.x) < 7 && Math.abs(ev.clientY - drag.y) < 7) return;
+      drag.moved = true;
+      const over = document.elementFromPoint(ev.clientX, ev.clientY);
+      const other = over && over.closest && over.closest("#path-strip [data-id]");
+      if (!other || other === drag.el) return;
+      const parent = drag.el.parentNode;
+      if (!parent) return;
+      const kids = Array.prototype.slice.call(parent.children);
+      const i = kids.indexOf(drag.el);
+      const j = kids.indexOf(other);
+      if (i < 0 || j < 0 || i === j) return;
+      if (i < j) parent.insertBefore(drag.el, other.nextSibling);
+      else parent.insertBefore(drag.el, other);
+    });
+    function endDrag(ev) {
+      if (!drag) return;
+      const moved = drag.moved;
+      const id = drag.id;
+      drag = null;
+      if (!moved) {
+        abandonTrip();
+        player.goto(id).catch(function () {});
+        return;
+      }
+      const order = [];
+      host.querySelectorAll("[data-id]").forEach(function (btn) {
+        order.push(Number(btn.getAttribute("data-id")));
+      });
+      if (order.length) applyArranged(order);
+    }
+    host.addEventListener("pointerup", endDrag);
+    host.addEventListener("pointercancel", function () {
+      drag = null;
+    });
+  })();
 
   plates.setOnSelect(function (_i, iso, row) {
     if (mode !== "apart") return;
@@ -1666,6 +2001,7 @@
   }
 
   function hidePaths() {
+    if (document.activeElement && document.activeElement.id === "crew-input") return;
     const mouseHover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
     if (mouseHover && playNavEl && playNavEl.matches(":hover")) {
       pathTimer = window.setTimeout(hidePaths, 3000);
@@ -1738,7 +2074,7 @@
     }
 
     function hitControl(target) {
-      return !!(target && target.closest && target.closest("button, a, input, label, .controls, .colophon"));
+      return !!(target && target.closest && target.closest("button, a, input, label, .controls, .colophon, .crew, .path-strip"));
     }
 
     function begin(x, y, key, target) {
@@ -1817,7 +2153,7 @@
   });
 
   document.addEventListener("keydown", function (ev) {
-    if (ev.target === idInput) return;
+    if (ev.target === idInput || (ev.target && ev.target.id === "crew-input")) return;
     if (ev.key === "e" || ev.key === "E") {
       ev.preventDefault();
       onApartClick();
@@ -1912,7 +2248,20 @@
       return map;
     })(table.bytes);
     pathLists = paths.build(table.bytes);
+    rebuildPathNav();
     (function applyBootPath() {
+      const crewQ = parseCrewFromUrl();
+      if (crewQ.length) {
+        const q = new URLSearchParams(location.search);
+        loadCrew(crewQ.join(","), {
+          fromUrl: true,
+          id: parseDeepId(),
+          path: q.get("path") || "watch",
+          order: parseOrderFromUrl(),
+          keepPlay: player.isPlaying(),
+        }).catch(function () {});
+        return;
+      }
       const wanted = parsePathFromUrl();
       const from = player.getId();
       const name = (wanted === "fleet" || listForPath(wanted)) ? wanted : "fleet";
@@ -1940,9 +2289,27 @@
   });
 
   function applyLocation() {
+    const crewQ = parseCrewFromUrl();
+    if (crewQ.length) {
+      const same = crewAddresses && crewQ.join(",") === crewAddresses.join(",");
+      const q = new URLSearchParams(location.search);
+      if (!same) {
+        loadCrew(crewQ.join(","), {
+          fromUrl: true,
+          id: parseDeepId(),
+          path: q.get("path") || "watch",
+          order: parseOrderFromUrl(),
+        }).catch(function () {});
+        return;
+      }
+    } else if (crewIds) {
+      clearCrew();
+    }
     const n = parseDeepId();
     const wanted = parsePathFromUrl();
-    const name = (wanted === "fleet" || listForPath(wanted)) ? wanted : "fleet";
+    const name = crewIds
+      ? ((wanted === "fleet" || listForPath(wanted)) ? wanted : "watch")
+      : ((wanted === "fleet" || listForPath(wanted)) ? wanted : "fleet");
     adoptPath(name, { force: true });
     if (n !== player.getId()) player.goto(n).catch(function () {});
     else syncUrl(n);
