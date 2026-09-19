@@ -80,6 +80,9 @@
   let filmLive = false;
   let filmStartedAt = 0;
   let filmTimer = 0;
+  let trip = null;
+  let tripSeq = 0;
+  let tripTimer = 0;
   const deadSinceAt = Object.create(null);
   let ageTimer = 0;
   let ageOpen = false;
@@ -406,7 +409,7 @@
       a.addEventListener("click", function (ev) {
         if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
         ev.preventDefault();
-        goTwin(twin);
+        openTwin(twin);
       });
       caption.appendChild(a);
     } else {
@@ -433,7 +436,7 @@
       toggleBtn.setAttribute("aria-pressed", "false");
       return;
     }
-    const on = player.isPlaying();
+    const on = walkIsOn();
     toggleBtn.textContent = on ? "Pause" : "Play";
     toggleBtn.setAttribute("aria-pressed", on ? "true" : "false");
   }
@@ -444,7 +447,7 @@
   }
 
   function setModeButtons() {
-    const playing = player.isPlaying();
+    const playing = walkIsOn();
     modeWatch.textContent = playing ? "Pause" : "Play";
     modeWatch.classList.toggle("is-on", mode === "watch");
     modeWatch.classList.toggle("is-playing", mode === "watch" && playing);
@@ -670,7 +673,6 @@
   function bindTwinProof(frame) {
     clearTwinProof();
     if (!frame || mode !== "watch") return;
-    if (player && player.isPlaying()) return;
     if (decode.frameIsFate(frame)) return;
     if (frame.unminted || frame.source === "render") return;
     const cand = twins[frame.id];
@@ -678,6 +680,7 @@
     const traits = table.row(frame.id);
     const other = table.row(cand);
     if (!traits || !other || !explode.traitDiffCells) return;
+    const show = !(player && player.isPlaying()) && !trip;
     const seq = ++twinSeq;
     const invite = twinInvite;
     twinInvite = false;
@@ -691,8 +694,10 @@
       if (!mate || !mate.svg || mate.unminted || !frame.svg || !explode.printDiffCells) {
         twinOk[frame.id] = 1;
         twinOk[cand] = 1;
-        twinCells = cells;
-        placeTwinProof(twinCells, invite);
+        if (show) {
+          twinCells = cells;
+          placeTwinProof(twinCells, invite);
+        }
         setCaption(frame.id);
         return;
       }
@@ -711,8 +716,10 @@
       }
       twinOk[frame.id] = 1;
       twinOk[cand] = 1;
-      twinCells = cells;
-      placeTwinProof(twinCells, invite);
+      if (show) {
+        twinCells = cells;
+        placeTwinProof(twinCells, invite);
+      }
       setCaption(frame.id);
     }).catch(function () {});
   }
@@ -722,8 +729,72 @@
     pixel.classList.remove("twin-arrive");
     void pixel.offsetWidth;
     pixel.classList.add("twin-arrive");
-    player.goto(id).catch(function () {
+    return player.goto(id).catch(function () {
       twinInvite = false;
+    });
+  }
+
+  function walkIsOn() {
+    return !!(player && player.isPlaying()) || !!(trip && trip.resume);
+  }
+
+  function beginTrip(kind, home, resume) {
+    abandonTrip();
+    tripSeq += 1;
+    trip = { kind: kind, home: Number(home), resume: !!resume, seq: tripSeq };
+    if (resume && player && player.isPlaying()) {
+      player.pause();
+      syncToggle();
+      setModeButtons();
+    }
+    dismissAge();
+    return trip;
+  }
+
+  function cancelTrip() {
+    window.clearTimeout(tripTimer);
+    tripTimer = 0;
+    tripSeq += 1;
+    const t = trip;
+    trip = null;
+    if (filmPlaying) stopFilm();
+    syncToggle();
+    setModeButtons();
+    return t;
+  }
+
+  function abandonTrip() {
+    const t = cancelTrip();
+    if (!t) return null;
+    if (t.kind === "twin" && player.getId() !== t.home) {
+      player.goto(t.home).catch(function () {});
+    }
+    return t;
+  }
+
+  function openTwin(twinId) {
+    if (mode !== "watch" || filmPlaying) return;
+    if (!lastFrame) return;
+    const home = Number(lastFrame.id);
+    const resume = !!(player && player.isPlaying());
+    beginTrip("twin", home, resume);
+    const seq = trip.seq;
+    Promise.resolve(goTwin(twinId)).then(function () {
+      if (seq !== tripSeq) return;
+      tripTimer = window.setTimeout(function () {
+        if (seq !== tripSeq || !trip || trip.kind !== "twin") return;
+        player.goto(home).then(function () {
+          if (seq !== tripSeq) return;
+          trip = null;
+          if (resume && mode === "watch") player.play();
+          syncToggle();
+          setModeButtons();
+        }).catch(function () {
+          trip = null;
+          syncToggle();
+          setModeButtons();
+        });
+      }, FILM_BEAT_MS);
     });
   }
 
@@ -802,7 +873,7 @@
     if (ev && ev.pointerType === "touch") return;
     if (performance.now() - filmStartedAt < 120) return;
     if (ev && pointerInStage(ev)) return;
-    stopFilm();
+    abandonTrip();
   }
 
   function stopFilm() {
@@ -853,8 +924,12 @@
   async function startFilm(doorId) {
     const film = filmDoorOf(doorId);
     if (!film) return;
-    if (mode !== "watch" || (player && player.isPlaying())) return;
-    dismissAge();
+    if (mode !== "watch") return;
+    if (trip && trip.kind === "twin") return;
+    const home = Number(doorId);
+    const resume = !!(player && player.isPlaying());
+    beginTrip("film", home, resume);
+    const tripAt = trip.seq;
     releaseIdBox();
 
     const forward = Number(doorId) === film.stem;
@@ -896,6 +971,12 @@
     if (!(await filmWait(FILM_STEM_MS, seq))) return;
     if (seq !== filmSeq) return;
     stopFilm();
+    if (tripAt !== tripSeq || !trip || trip.kind !== "film") return;
+    const should = trip.resume;
+    trip = null;
+    syncToggle();
+    setModeButtons();
+    if (should && mode === "watch") player.play();
   }
 
   function clearRevealWell() {
@@ -1015,6 +1096,7 @@
   function enterDraw() {
     if (lastFrame && (lastFrame.kind === "gif" || lastFrame.kind === "raster")) return;
     if (lastFrame && (lastFrame.unminted || lastFrame.source === "render")) return;
+    abandonTrip();
     if (filmPlaying) stopFilm();
     dismissAge();
     player.pause();
@@ -1037,9 +1119,29 @@
   }
 
   function leaveModeAndPlay() {
+    abandonTrip();
     if (mode === "apart") reassemble();
     else if (mode === "draw") leaveDraw();
     player.play();
+    syncToggle();
+    setModeButtons();
+  }
+
+  function toggleWalk() {
+    if (trip) {
+      const t = trip;
+      abandonTrip();
+      if (!t.resume) {
+        player.goto(t.home).then(function () {
+          player.play();
+          syncToggle();
+          setModeButtons();
+        }).catch(function () {});
+      }
+      return;
+    }
+    if (filmPlaying) stopFilm();
+    player.toggle();
     syncToggle();
     setModeButtons();
   }
@@ -1051,10 +1153,7 @@
       showPaths();
       return;
     }
-    if (filmPlaying) stopFilm();
-    player.toggle();
-    syncToggle();
-    setModeButtons();
+    toggleWalk();
     showPaths();
   }
 
@@ -1084,6 +1183,7 @@
   }
 
   function enterApart() {
+    abandonTrip();
     if (filmPlaying) stopFilm();
     if (mode === "draw") {
       stopDraw();
@@ -1228,6 +1328,7 @@
 
     mountArt(frame);
     syncStemClass();
+    if (mode === "watch" && !filmPlaying) bindTwinProof(frame);
   }
 
   const player = playback.createPlayback({
@@ -1304,6 +1405,7 @@
   function walkPath(name) {
     const next = paths.parse(name);
     if (next === activePath) return;
+    abandonTrip();
     if (!adoptPath(next)) return;
     const dest = startOfPath();
     syncUrl(dest);
@@ -1322,22 +1424,25 @@
   }
 
   function restartShow() {
-    if (filmPlaying) stopFilm();
+    const keep = walkIsOn();
+    abandonTrip();
     const dest = startOfPath();
-    if (player.getId() === dest && lastFrame && lastFrame.id === dest) return;
-    player.goto(dest, { keepPlay: player.isPlaying() }).catch(function () {});
+    if (player.getId() === dest && lastFrame && lastFrame.id === dest) {
+      if (keep) player.play();
+      return;
+    }
+    player.goto(dest, { keepPlay: keep }).then(function () {
+      if (keep) player.play();
+    }).catch(function () {});
   }
 
   toggleBtn.addEventListener("click", function () {
     releaseIdBox();
-    if (filmPlaying) stopFilm();
     if (mode === "draw" || mode === "apart") {
       leaveModeAndPlay();
       return;
     }
-    player.toggle();
-    syncToggle();
-    setModeButtons();
+    toggleWalk();
   });
   resetBtn.addEventListener("click", function () {
     if (mode !== "draw") return;
@@ -1355,11 +1460,11 @@
     }
   });
   prevBtn.addEventListener("click", function () {
-    if (filmPlaying) stopFilm();
+    abandonTrip();
     player.prev().catch(function () {});
   });
   nextBtn.addEventListener("click", function () {
-    if (filmPlaying) stopFilm();
+    abandonTrip();
     player.next().catch(function () {});
   });
   if (pathsEl) {
@@ -1405,6 +1510,7 @@
     if (!raw) return;
     const n = player.wrap(Number(raw));
     idInput.value = String(n);
+    abandonTrip();
     if (player.getId() === n && lastFrame && lastFrame.id === n) return;
     player.goto(n).catch(function () {});
   }
@@ -1456,7 +1562,7 @@
   function onPlatePointerDown(ev) {
     if (ev.button !== 0) return;
     if (player.isPlaying() || mode !== "watch") return;
-    if (filmPlaying) return;
+    if (filmPlaying || trip) return;
     if (twinCellAt(ev)) return;
     if (lastFrame && filmDoorOf(lastFrame.id)) {
       releaseIdBox();
@@ -1467,24 +1573,38 @@
 
   function onPlateClick(ev) {
     if (mode !== "watch") return;
-    if (player.isPlaying()) {
+    if (filmPlaying) {
+      ev.preventDefault();
+      if (filmCanStop()) abandonTrip();
+      return;
+    }
+    if (trip) return;
+    if (!lastFrame) return;
+    if (isAgeTarget(lastFrame)) {
       if (requestAge()) ev.preventDefault();
       return;
     }
-    if (filmPlaying) {
-      ev.preventDefault();
-      if (filmCanStop()) stopFilm();
+    if (player.isPlaying()) {
+      if (twins[lastFrame.id] && twinOk[lastFrame.id] === 1) {
+        ev.preventDefault();
+        openTwin(twins[lastFrame.id]);
+        return;
+      }
+      if (filmDoorOf(lastFrame.id)) {
+        ev.preventDefault();
+        startFilm(lastFrame.id);
+      }
       return;
     }
-    if (twinCellAt(ev) && lastFrame) {
+    if (twinCellAt(ev)) {
       const twin = twinOf(lastFrame.id);
       if (twin) {
         ev.preventDefault();
-        goTwin(twin);
+        openTwin(twin);
         return;
       }
     }
-    if (lastFrame && filmDoorOf(lastFrame.id)) {
+    if (filmDoorOf(lastFrame.id)) {
       ev.preventDefault();
       startFilm(lastFrame.id);
       return;
@@ -1709,8 +1829,8 @@
     }
     if (ev.key === "Escape") {
       ev.preventDefault();
-      if (filmPlaying) {
-        stopFilm();
+      if (trip || filmPlaying) {
+        abandonTrip();
         return;
       }
       if (mode === "draw") leaveDraw();
@@ -1725,24 +1845,20 @@
     }
     if (ev.key === " " || ev.code === "Space") {
       ev.preventDefault();
-      if (filmPlaying) {
-        stopFilm();
-        return;
-      }
       if (mode === "apart" || mode === "draw") {
         leaveModeAndPlay();
         return;
       }
-      player.toggle();
+      toggleWalk();
       syncToggle();
       setModeButtons();
     } else if (ev.key === "ArrowRight") {
       ev.preventDefault();
-      if (filmPlaying) stopFilm();
+      abandonTrip();
       player.next().catch(function () {});
     } else if (ev.key === "ArrowLeft") {
       ev.preventDefault();
-      if (filmPlaying) stopFilm();
+      abandonTrip();
       player.prev().catch(function () {});
     }
   });
