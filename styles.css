@@ -183,32 +183,8 @@ button.wordmark:focus-visible {
 
 .paths .crew-win {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.08rem;
-}
-
-.paths button.is-leave,
-.paths button.is-fold {
-  letter-spacing: 0;
-  word-spacing: 0;
-  font-size: 0.95rem;
-  padding: 0 0.08rem;
-  color: var(--gold-dim);
-  border-bottom-color: transparent;
-}
-
-.paths button.is-fold {
-  font-family: var(--font-mono);
-  font-size: 1.2rem;
-  line-height: 1;
-  font-weight: 400;
-}
-
-.paths button.is-leave:hover,
-.paths button.is-leave:focus-visible,
-.paths button.is-fold:hover,
-.paths button.is-fold:focus-visible {
-  color: var(--gold);
 }
 
 .echo-deck {
@@ -301,7 +277,7 @@ button.wordmark:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
+  gap: 0.08rem;
 }
 
 .crew-addr {
@@ -315,34 +291,27 @@ button.wordmark:focus-visible {
   border-bottom: 1px solid var(--line);
 }
 
-.crew-add {
+.crew-add,
+.crew-drop {
   font-family: var(--font-mono);
   font-size: 0.78rem;
-  letter-spacing: 0;
+  letter-spacing: 0.07em;
   text-transform: none;
   color: var(--muted);
-  padding: 0;
-  min-width: 0.9rem;
+  padding: 0.05rem 0.02rem;
+  min-width: 0;
+  line-height: 1;
 }
 
 .crew-add[hidden] {
   display: none;
 }
 
-.crew-drop {
-  font-family: var(--font-serif);
-  font-size: 1.05rem;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--gold-dim);
-  padding: 0 0.15rem;
-  min-width: 1.2rem;
-  line-height: 1;
-}
-
+.crew-add:hover,
+.crew-add:focus-visible,
 .crew-drop:hover,
 .crew-drop:focus-visible {
-  color: var(--gold);
+  color: var(--ink);
 }
 
 .crew-go {
@@ -468,8 +437,10 @@ button.wordmark:focus-visible {
     word-spacing: -0.28em;
   }
 
-  .paths button.is-leave {
-    font-size: 0.78rem;
+  .crew-add,
+  .crew-drop {
+    font-size: 0.5rem;
+    letter-spacing: 0.04em;
   }
 }
 
