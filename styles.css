@@ -437,10 +437,54 @@ button.wordmark:focus-visible {
     word-spacing: -0.28em;
   }
 
+  .paths .crew-win {
+    gap: 0.55rem;
+  }
+
+  .paths .crew-win button {
+    font-size: 0.78rem;
+    min-width: 2.25rem;
+    min-height: 2.25rem;
+    padding: 0.4rem 0.45rem;
+    letter-spacing: 0.04em;
+  }
+
+  .crew-row {
+    gap: 0.55rem;
+  }
+
   .crew-add,
   .crew-drop {
-    font-size: 0.5rem;
+    font-size: 0.78rem;
+    min-width: 2.25rem;
+    min-height: 2.25rem;
+    padding: 0.4rem 0.45rem;
     letter-spacing: 0.04em;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) and (min-width: 44.01rem) {
+  .paths .crew-win {
+    gap: 0.55rem;
+  }
+
+  .paths .crew-win button {
+    font-size: 0.78rem;
+    min-width: 2.25rem;
+    min-height: 2.25rem;
+    padding: 0.4rem 0.45rem;
+  }
+
+  .crew-row {
+    gap: 0.55rem;
+  }
+
+  .crew-add,
+  .crew-drop {
+    font-size: 0.78rem;
+    min-width: 2.25rem;
+    min-height: 2.25rem;
+    padding: 0.4rem 0.45rem;
   }
 }
 
