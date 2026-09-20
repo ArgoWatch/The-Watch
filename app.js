@@ -70,6 +70,9 @@
   let crewLists = null;
   let echoPicksList = [];
   let echoCursor = 0;
+  let echoIdle = true;
+  let crewPeek = false;
+  let stripPick = null;
   let arrangedList = null;
   let crewFirstIn = null;
   let crewOmit = [];
@@ -1194,6 +1197,7 @@
     abandonTrip();
     if (mode === "apart") reassemble();
     else if (mode === "draw") leaveDraw();
+    crewPeek = false;
     player.play();
     syncToggle();
     setModeButtons();
@@ -1214,6 +1218,10 @@
     }
     if (filmPlaying) stopFilm();
     player.toggle();
+    if (walkIsOn()) {
+      crewPeek = false;
+      salon.classList.remove("paths-on");
+    }
     syncToggle();
     setModeButtons();
   }
@@ -1222,11 +1230,13 @@
     releaseIdBox();
     if (mode === "apart" || mode === "draw") {
       leaveModeAndPlay();
-      showPaths();
+      if (crewChromeOpen()) showPaths();
+      else salon.classList.remove("paths-on");
       return;
     }
     toggleWalk();
-    showPaths();
+    if (!walkIsOn() || crewChromeOpen()) showPaths();
+    else salon.classList.remove("paths-on");
   }
 
   function onDrawClick() {
@@ -1481,8 +1491,12 @@
     if (next !== "fleet" && !list) return false;
     if (next === activePath && !(opts && opts.force)) return false;
     activePath = next;
+    const idle = String(next).indexOf("echo:") !== 0;
+    const idleChanged = idle !== echoIdle;
+    echoIdle = idle;
     player.setList(list);
-    markPathButtons();
+    if (crewIds && idleChanged) rebuildPathNav();
+    else markPathButtons();
     paintStrip();
     return true;
   }
@@ -1539,7 +1553,12 @@
   function cycleEcho(dir) {
     if (!echoPicksList.length) return;
     const n = echoPicksList.length;
-    echoCursor = ((echoCursor + Number(dir) % n) + n) % n;
+    if (echoIdle) {
+      echoIdle = false;
+      echoCursor = dir < 0 ? n - 1 : 0;
+    } else {
+      echoCursor = ((echoCursor + Number(dir) % n) + n) % n;
+    }
     const pick = currentEcho();
     rebuildPathNav();
     showPaths();
@@ -1550,27 +1569,33 @@
     const wrap = document.createElement("span");
     wrap.className = "echo-deck";
     const pick = currentEcho();
+    const idle = echoIdle || !pick;
     const many = echoPicksList.length > 1;
     if (many) {
       const prev = document.createElement("button");
       prev.type = "button";
       prev.className = "echo-step";
       prev.setAttribute("data-echo-step", "-1");
-      prev.setAttribute("aria-label", "Previous echo");
+      prev.setAttribute("aria-label", "Previous theme");
       prev.textContent = "‹";
       wrap.appendChild(prev);
     }
     const name = document.createElement("button");
     name.type = "button";
-    name.setAttribute("data-path", pick ? pick.id : "watch");
-    name.textContent = pick ? pick.label : "";
+    if (idle) {
+      name.setAttribute("data-echo-step", "1");
+      name.textContent = "Themes";
+    } else {
+      name.setAttribute("data-path", pick.id);
+      name.textContent = pick.label;
+    }
     wrap.appendChild(name);
     if (many) {
       const next = document.createElement("button");
       next.type = "button";
       next.className = "echo-step";
       next.setAttribute("data-echo-step", "1");
-      next.setAttribute("aria-label", "Next echo");
+      next.setAttribute("aria-label", "Next theme");
       next.textContent = "›";
       wrap.appendChild(next);
     }
@@ -1730,6 +1755,7 @@
       let cell = byId[id];
       if (!cell) cell = makeStripCell(id);
       cell.classList.toggle("is-on", id === cur);
+      cell.classList.toggle("is-pick", stripPick === id);
       frag.appendChild(cell);
     });
     host.replaceChildren();
@@ -1791,6 +1817,9 @@
     crewFirstIn = null;
     crewOmit = [];
     crewBusy = false;
+    crewPeek = false;
+    echoIdle = true;
+    stripPick = null;
     salon.classList.remove("crew-busy");
     paintStrip();
   }
@@ -1799,11 +1828,18 @@
     return !!(crewIds || crewBusy || crewEditing);
   }
 
+  function crewChromeOpen() {
+    if (!inCrew()) return false;
+    if (crewBusy || crewEditing) return true;
+    if (!walkIsOn()) return true;
+    return !!crewPeek;
+  }
+
   function syncCrewChrome() {
     const root = document.getElementById("crew");
-    salon.classList.toggle("crew-live", inCrew());
+    salon.classList.toggle("crew-live", crewChromeOpen());
     if (!root) return;
-    root.classList.toggle("is-edit", inCrew());
+    root.classList.toggle("is-edit", crewChromeOpen());
     if (idInput) idInput.tabIndex = crewEditing ? -1 : 0;
   }
 
@@ -2231,6 +2267,15 @@
 
     crewBtn.addEventListener("click", function () {
       if (crewBusy) return;
+      if (mode === "apart") reassemble();
+      else if (mode === "draw") leaveDraw();
+      if (crewIds && walkIsOn()) {
+        crewPeek = !crewPeek;
+        if (crewPeek) showPaths();
+        else salon.classList.remove("paths-on");
+        syncCrewChrome();
+        return;
+      }
       if (crewIds) {
         stashAndLeave();
         return;
@@ -2251,20 +2296,64 @@
     const host = document.getElementById("path-strip");
     if (!host) return;
     let drag = null;
-    let holdTimer = 0;
     const coarse = window.matchMedia("(hover: none), (pointer: coarse)");
+
+    function markPick() {
+      host.querySelectorAll("[data-id]").forEach(function (el) {
+        el.classList.toggle("is-pick", Number(el.getAttribute("data-id")) === stripPick);
+      });
+    }
+
+    function movePickTo(id) {
+      const order = [];
+      host.querySelectorAll("[data-id]").forEach(function (el) {
+        order.push(Number(el.getAttribute("data-id")));
+      });
+      const from = order.indexOf(stripPick);
+      if (from < 0) return;
+      order.splice(from, 1);
+      const dest = order.indexOf(id);
+      if (dest < 0) return;
+      order.splice(dest, 0, stripPick);
+      stripPick = null;
+      markPick();
+      applyArranged(order);
+    }
 
     host.addEventListener("click", function (ev) {
       const drop = ev.target.closest(".strip-drop");
-      if (!drop || !crewIds || crewBusy) return;
-      ev.preventDefault();
-      ev.stopPropagation();
-      const cell = drop.closest("[data-id]");
+      if (drop) {
+        if (!crewIds || crewBusy) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        const cell = drop.closest("[data-id]");
+        if (!cell) return;
+        stripPick = null;
+        removeCrewId(Number(cell.getAttribute("data-id")));
+        return;
+      }
+      if (!coarse.matches || !crewIds || crewBusy) return;
+      const cell = ev.target.closest("#path-strip [data-id]");
       if (!cell) return;
-      removeCrewId(Number(cell.getAttribute("data-id")));
+      ev.preventDefault();
+      const id = Number(cell.getAttribute("data-id"));
+      if (stripPick == null) {
+        stripPick = id;
+        markPick();
+        return;
+      }
+      if (stripPick === id) {
+        stripPick = null;
+        markPick();
+        abandonTrip();
+        player.goto(id).catch(function () {});
+        return;
+      }
+      movePickTo(id);
     });
 
     host.addEventListener("pointerdown", function (ev) {
+      if (coarse.matches) return;
       if (ev.target.closest(".strip-drop")) return;
       const cell = ev.target.closest("#path-strip [data-id]");
       if (!cell || !crewIds) return;
@@ -2275,24 +2364,14 @@
         moved: false,
         el: cell,
       };
-      window.clearTimeout(holdTimer);
-      if (coarse.matches && !crewBusy) {
-        holdTimer = window.setTimeout(function () {
-          if (!drag || drag.moved) return;
-          const id = drag.id;
-          drag = null;
-          removeCrewId(id);
-        }, 650);
-      }
       try {
         cell.setPointerCapture(ev.pointerId);
       } catch (_) {}
     });
     host.addEventListener("pointermove", function (ev) {
-      if (!drag) return;
+      if (!drag || coarse.matches) return;
       if (Math.abs(ev.clientX - drag.x) < 7 && Math.abs(ev.clientY - drag.y) < 7) return;
       drag.moved = true;
-      window.clearTimeout(holdTimer);
       const over = document.elementFromPoint(ev.clientX, ev.clientY);
       const other = over && over.closest && over.closest("#path-strip [data-id]");
       if (!other || other === drag.el) return;
@@ -2306,11 +2385,11 @@
       else parent.insertBefore(drag.el, other);
     });
     function endDrag() {
-      window.clearTimeout(holdTimer);
       if (!drag) return;
       const moved = drag.moved;
       const id = drag.id;
       drag = null;
+      if (coarse.matches) return;
       if (!moved) {
         abandonTrip();
         player.goto(id).catch(function () {});
@@ -2324,7 +2403,6 @@
     }
     host.addEventListener("pointerup", endDrag);
     host.addEventListener("pointercancel", function () {
-      window.clearTimeout(holdTimer);
       drag = null;
     });
   })();
@@ -2495,6 +2573,7 @@
   });
 
   let chromeTimer = 0;
+  const CHROME_MS = 4000;
   const controlsEl = salon.querySelector(".controls");
   const wordmarkEl = salon.querySelector(".wordmark");
   const playNavEl = salon.querySelector(".play-nav");
@@ -2503,7 +2582,7 @@
     if (document.activeElement === idInput) return;
     const mouseHover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
     if (mouseHover && controlsEl && controlsEl.matches(":hover")) {
-      chromeTimer = window.setTimeout(hideChrome, 3000);
+      chromeTimer = window.setTimeout(hideChrome, CHROME_MS);
       return;
     }
     salon.classList.remove("chrome-on");
@@ -2512,15 +2591,15 @@
   function showChrome() {
     salon.classList.add("chrome-on");
     window.clearTimeout(chromeTimer);
-    chromeTimer = window.setTimeout(hideChrome, 3000);
+    chromeTimer = window.setTimeout(hideChrome, CHROME_MS);
   }
 
   function hidePaths() {
-    if (inCrew()) return;
+    if (crewChromeOpen()) return;
     if (document.activeElement && document.activeElement.classList.contains("crew-addr")) return;
     const mouseHover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
     if (mouseHover && playNavEl && playNavEl.matches(":hover")) {
-      pathTimer = window.setTimeout(hidePaths, 3000);
+      pathTimer = window.setTimeout(hidePaths, CHROME_MS);
       return;
     }
     salon.classList.remove("paths-on");
@@ -2528,10 +2607,11 @@
 
   function showPaths() {
     if (mode !== "watch") return;
+    if (inCrew() && !crewChromeOpen()) return;
     salon.classList.add("paths-on");
     window.clearTimeout(pathTimer);
-    if (inCrew()) return;
-    pathTimer = window.setTimeout(hidePaths, 3000);
+    if (crewChromeOpen()) return;
+    pathTimer = window.setTimeout(hidePaths, CHROME_MS);
   }
 
   document.addEventListener("pointerdown", function (ev) {
