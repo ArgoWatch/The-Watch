@@ -173,7 +173,8 @@ button.wordmark:focus-visible {
   border-bottom-color: currentColor;
 }
 
-.paths button.is-leave {
+.paths button.is-leave,
+.paths button.is-fold {
   letter-spacing: 0;
   word-spacing: 0;
   font-size: 0.95rem;
@@ -182,8 +183,17 @@ button.wordmark:focus-visible {
   border-bottom-color: transparent;
 }
 
+.paths button.is-fold {
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  line-height: 1;
+  transform: translateY(-0.12em);
+}
+
 .paths button.is-leave:hover,
-.paths button.is-leave:focus-visible {
+.paths button.is-leave:focus-visible,
+.paths button.is-fold:hover,
+.paths button.is-fold:focus-visible {
   color: var(--gold);
 }
 

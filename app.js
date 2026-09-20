@@ -71,7 +71,7 @@
   let echoPicksList = [];
   let echoCursor = 0;
   let echoIdle = true;
-  let crewPeek = false;
+  let crewFolded = false;
   let stripPick = null;
   let arrangedList = null;
   let crewFirstIn = null;
@@ -1197,7 +1197,6 @@
     abandonTrip();
     if (mode === "apart") reassemble();
     else if (mode === "draw") leaveDraw();
-    crewPeek = false;
     player.play();
     syncToggle();
     setModeButtons();
@@ -1218,10 +1217,6 @@
     }
     if (filmPlaying) stopFilm();
     player.toggle();
-    if (walkIsOn()) {
-      crewPeek = false;
-      salon.classList.remove("paths-on");
-    }
     syncToggle();
     setModeButtons();
   }
@@ -1230,13 +1225,11 @@
     releaseIdBox();
     if (mode === "apart" || mode === "draw") {
       leaveModeAndPlay();
-      if (crewChromeOpen()) showPaths();
-      else salon.classList.remove("paths-on");
+      showPaths();
       return;
     }
     toggleWalk();
-    if (!walkIsOn() || crewChromeOpen()) showPaths();
-    else salon.classList.remove("paths-on");
+    showPaths();
   }
 
   function onDrawClick() {
@@ -1472,7 +1465,7 @@
   function markPathButtons() {
     if (!pathsEl) return;
     pathsEl.querySelectorAll("[data-path]").forEach(function (btn) {
-      if (btn.classList.contains("is-leave")) {
+      if (btn.classList.contains("is-leave") || btn.classList.contains("is-fold")) {
         btn.classList.remove("is-on");
         btn.removeAttribute("aria-current");
         return;
@@ -1502,6 +1495,10 @@
   }
 
   function walkPath(name) {
+    if ((crewIds || crewBusy) && String(name) === "fold") {
+      foldCrewChrome();
+      return;
+    }
     if ((crewIds || crewBusy) && String(name) === "fleet") {
       stashAndLeave();
       return;
@@ -1607,17 +1604,19 @@
     pathsEl.replaceChildren();
     const items = [];
     if (crewIds && !crewBusy) {
+      items.push({ id: "fold", label: "_", fold: true });
       items.push({ id: "fleet", label: "×", leave: true });
       items.push({ id: "watch", label: "Suit Up" });
-      items.push({ id: "dealt", label: "As Minted" });
       if (echoPicksList.length) items.push({ deck: true });
+      items.push({ id: "dealt", label: "As Minted" });
       if (crewLists && crewLists.arrived && crewLists.arrived.length) {
-        items.push({ id: "arrived", label: "As Arrived" });
+        items.push({ id: "arrived", label: "As Received" });
       }
       if (arrangedList && arrangedList.length) {
-        items.push({ id: "arranged", label: "As arranged" });
+        items.push({ id: "arranged", label: "As Arranged" });
       }
     } else if (crewBusy) {
+      items.push({ id: "fold", label: "_", fold: true });
       items.push({ id: "fleet", label: "×", leave: true });
     } else if (!crewEditing) {
       items.push({ id: "fleet", label: "Fleet" });
@@ -1637,6 +1636,10 @@
       btn.type = "button";
       btn.setAttribute("data-path", item.id);
       btn.textContent = item.label;
+      if (item.fold) {
+        btn.classList.add("is-fold");
+        btn.setAttribute("aria-label", "Hide crew");
+      }
       if (item.leave) {
         btn.classList.add("is-leave");
         btn.setAttribute("aria-label", "Leave crew");
@@ -1817,7 +1820,7 @@
     crewFirstIn = null;
     crewOmit = [];
     crewBusy = false;
-    crewPeek = false;
+    crewFolded = false;
     echoIdle = true;
     stripPick = null;
     salon.classList.remove("crew-busy");
@@ -1828,11 +1831,18 @@
     return !!(crewIds || crewBusy || crewEditing);
   }
 
+  function foldCrewChrome() {
+    if (!inCrew()) return;
+    crewFolded = true;
+    salon.classList.remove("paths-on");
+    syncCrewChrome();
+  }
+
   function crewChromeOpen() {
     if (!inCrew()) return false;
-    if (crewBusy || crewEditing) return true;
-    if (!walkIsOn()) return true;
-    return !!crewPeek;
+    if (crewBusy && !crewFolded) return true;
+    if (crewFolded) return false;
+    return true;
   }
 
   function syncCrewChrome() {
@@ -1865,6 +1875,7 @@
     crewIds = lastCrew.ids.slice();
     crewBusy = false;
     crewEditing = false;
+    crewFolded = false;
     salon.classList.remove("crew-busy");
     const crewRoot = document.getElementById("crew");
     if (crewRoot) crewRoot.classList.remove("is-edit");
@@ -2269,15 +2280,11 @@
       if (crewBusy) return;
       if (mode === "apart") reassemble();
       else if (mode === "draw") leaveDraw();
-      if (crewIds && walkIsOn()) {
-        crewPeek = !crewPeek;
-        if (crewPeek) showPaths();
-        else salon.classList.remove("paths-on");
-        syncCrewChrome();
-        return;
-      }
       if (crewIds) {
-        stashAndLeave();
+        crewFolded = !crewFolded;
+        if (crewFolded) salon.classList.remove("paths-on");
+        else showPaths();
+        syncCrewChrome();
         return;
       }
       if (crewEditing) {
@@ -2337,9 +2344,22 @@
       if (!cell) return;
       ev.preventDefault();
       const id = Number(cell.getAttribute("data-id"));
+      if (walkIsOn()) {
+        player.pause();
+        stripPick = null;
+        markPick();
+        abandonTrip();
+        player.goto(id).then(function () {
+          syncToggle();
+          setModeButtons();
+        }).catch(function () {});
+        return;
+      }
       if (stripPick == null) {
         stripPick = id;
         markPick();
+        abandonTrip();
+        player.goto(id).catch(function () {});
         return;
       }
       if (stripPick === id) {
