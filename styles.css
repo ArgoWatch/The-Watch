@@ -138,17 +138,25 @@ button.wordmark:focus-visible {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .salon:not(.take-apart):not(.draw-mode) .play-nav:hover .paths {
+  .salon:not(.take-apart):not(.draw-mode):not(.crew-folded) .play-nav:hover .paths {
     opacity: 1;
     pointer-events: auto;
   }
 }
 
-.salon.paths-on:not(.take-apart):not(.draw-mode) .paths,
+.salon.paths-on:not(.take-apart):not(.draw-mode):not(.crew-folded) .paths,
 .salon.crew-live:not(.take-apart):not(.draw-mode) .paths,
-.salon.crew-busy:not(.take-apart):not(.draw-mode) .paths {
+.salon.crew-busy:not(.take-apart):not(.draw-mode):not(.crew-folded) .paths {
   opacity: 1;
   pointer-events: auto;
+}
+
+.salon.crew-folded .paths,
+.salon.crew-folded .path-strip,
+.salon.crew-folded .crew {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 .paths button {
@@ -173,21 +181,27 @@ button.wordmark:focus-visible {
   border-bottom-color: currentColor;
 }
 
+.paths .crew-win {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.08rem;
+}
+
 .paths button.is-leave,
 .paths button.is-fold {
   letter-spacing: 0;
   word-spacing: 0;
   font-size: 0.95rem;
-  padding: 0 0.2rem;
+  padding: 0 0.08rem;
   color: var(--gold-dim);
   border-bottom-color: transparent;
 }
 
 .paths button.is-fold {
   font-family: var(--font-mono);
-  font-size: 1.05rem;
+  font-size: 1.2rem;
   line-height: 1;
-  transform: translateY(-0.12em);
+  font-weight: 400;
 }
 
 .paths button.is-leave:hover,
@@ -356,16 +370,16 @@ button.wordmark:focus-visible {
   transition: opacity 180ms ease;
 }
 
-.salon.paths-on:not(.take-apart):not(.draw-mode) .path-strip:not([hidden]),
+.salon.paths-on:not(.take-apart):not(.draw-mode):not(.crew-folded) .path-strip:not([hidden]),
 .salon.crew-live:not(.take-apart):not(.draw-mode) .path-strip:not([hidden]),
-.salon.crew-busy:not(.take-apart):not(.draw-mode) .path-strip:not([hidden]) {
+.salon.crew-busy:not(.take-apart):not(.draw-mode):not(.crew-folded) .path-strip:not([hidden]) {
   display: block;
   opacity: 1;
   pointer-events: auto;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .salon:not(.take-apart):not(.draw-mode) .play-nav:hover .path-strip:not([hidden]) {
+  .salon:not(.take-apart):not(.draw-mode):not(.crew-folded) .play-nav:hover .path-strip:not([hidden]) {
     display: block;
     opacity: 1;
     pointer-events: auto;

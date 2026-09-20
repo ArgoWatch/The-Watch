@@ -1604,8 +1604,8 @@
     pathsEl.replaceChildren();
     const items = [];
     if (crewIds && !crewBusy) {
-      items.push({ id: "fold", label: "_", fold: true });
-      items.push({ id: "fleet", label: "×", leave: true });
+      items.push({ id: "fold", label: "\u2212", fold: true });
+      items.push({ id: "fleet", label: "\u00d7", leave: true });
       items.push({ id: "watch", label: "Suit Up" });
       if (echoPicksList.length) items.push({ deck: true });
       items.push({ id: "dealt", label: "As Minted" });
@@ -1616,8 +1616,8 @@
         items.push({ id: "arranged", label: "As Arranged" });
       }
     } else if (crewBusy) {
-      items.push({ id: "fold", label: "_", fold: true });
-      items.push({ id: "fleet", label: "×", leave: true });
+      items.push({ id: "fold", label: "\u2212", fold: true });
+      items.push({ id: "fleet", label: "\u00d7", leave: true });
     } else if (!crewEditing) {
       items.push({ id: "fleet", label: "Fleet" });
       items.push({ id: "unclothed", label: "Unclothed" });
@@ -1627,8 +1627,10 @@
       items.push({ id: "artifact", label: "Artifact" });
       items.push({ id: "crown", label: "Crown" });
     }
+    let win = null;
     items.forEach(function (item) {
       if (item.deck) {
+        win = null;
         pathsEl.appendChild(makeEchoDeck());
         return;
       }
@@ -1644,6 +1646,16 @@
         btn.classList.add("is-leave");
         btn.setAttribute("aria-label", "Leave crew");
       }
+      if (item.fold || item.leave) {
+        if (!win) {
+          win = document.createElement("span");
+          win.className = "crew-win";
+          pathsEl.appendChild(win);
+        }
+        win.appendChild(btn);
+        return;
+      }
+      win = null;
       pathsEl.appendChild(btn);
     });
     markPathButtons();
@@ -1848,6 +1860,7 @@
   function syncCrewChrome() {
     const root = document.getElementById("crew");
     salon.classList.toggle("crew-live", crewChromeOpen());
+    salon.classList.toggle("crew-folded", !!(inCrew() && crewFolded));
     if (!root) return;
     root.classList.toggle("is-edit", crewChromeOpen());
     if (idInput) idInput.tabIndex = crewEditing ? -1 : 0;
@@ -2190,19 +2203,12 @@
       row.parentNode.removeChild(row);
       const left = crew.parseAddresses(collected());
       if (!left.length) {
-        lastCrew = null;
-        parkLiveCrew();
-        crewEditing = true;
-        crewRoot.classList.add("is-edit");
-        fields.replaceChildren();
-        const input = addRow(OSSEN_CREW);
-        rebuildPathNav();
-        showPaths();
-        setModeButtons();
-        syncUrl(player.getId());
-        if (input) {
-          input.focus();
-          input.select();
+        const keepPlay = walkIsOn();
+        clearCrew();
+        if (keepPlay) {
+          player.play();
+          syncToggle();
+          setModeButtons();
         }
         return;
       }
