@@ -1640,11 +1640,11 @@
       btn.textContent = item.label;
       if (item.fold) {
         btn.classList.add("is-fold");
-        btn.setAttribute("aria-label", "Hide Curate");
+        btn.setAttribute("aria-label", "Hide crew");
       }
       if (item.leave) {
         btn.classList.add("is-leave");
-        btn.setAttribute("aria-label", "Leave Curate");
+        btn.setAttribute("aria-label", "Leave crew");
       }
       if (item.fold || item.leave) {
         if (!win) {
@@ -2149,7 +2149,7 @@
       input.setAttribute("autocapitalize", "off");
       input.setAttribute("autocorrect", "off");
       input.setAttribute("enterkeyhint", "go");
-      input.setAttribute("aria-label", "Curate address");
+      input.setAttribute("aria-label", "Crew address");
       if (value) input.value = value;
       const drop = document.createElement("button");
       drop.type = "button";
