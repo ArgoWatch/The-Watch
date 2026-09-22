@@ -1990,6 +1990,7 @@
     adoptPath("fleet", { force: true });
     syncUrl(player.getId());
     setModeButtons();
+    showPaths();
   }
 
   function restoreLastCrew() {
@@ -2032,6 +2033,7 @@
     adoptPath("fleet", { force: true });
     syncUrl(player.getId());
     setModeButtons();
+    showPaths();
   }
 
   function idsWithoutOmit(ids) {
