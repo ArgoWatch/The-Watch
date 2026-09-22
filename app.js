@@ -408,12 +408,30 @@
     fitPrint();
   }
 
-  function twinOf(id) {
+  function twinKey(a, b) {
+    const x = Number(a);
+    const y = Number(b);
+    return x < y ? x + ":" + y : y + ":" + x;
+  }
+
+  function twinList(id) {
     const n = Number(id);
-    if (!twins[n]) return 0;
-    if (twinOk[n] !== 1) return 0;
-    if (lastFrame && decode.frameIsFate(lastFrame)) return 0;
-    return twins[n];
+    const raw = twins[n];
+    if (!raw) return [];
+    return Array.isArray(raw) ? raw.slice() : [raw];
+  }
+
+  function matesOf(id) {
+    const n = Number(id);
+    if (lastFrame && lastFrame.id === n && decode.frameIsFate(lastFrame)) return [];
+    return twinList(n).filter(function (m) {
+      return twinOk[twinKey(n, m)] === 1;
+    });
+  }
+
+  function twinOf(id) {
+    const m = matesOf(id);
+    return m.length ? m[0] : 0;
   }
 
   function deadSinceOf(id) {
@@ -517,7 +535,7 @@
       if (decode.frameIsFate(lastFrame)) return deadSinceOf(n) > 0;
     }
     if (filmDoorOf(n)) return true;
-    return !!(twins[n] && twinOk[n] === 1);
+    return matesOf(n).length > 0;
   }
 
   function setCaption(id) {
@@ -822,49 +840,57 @@
     if (!frame || mode !== "watch") return;
     if (decode.frameIsFate(frame)) return;
     if (frame.unminted || frame.source === "render") return;
-    const cand = twins[frame.id];
-    if (!cand) return;
+    const cands = twinList(frame.id);
+    if (!cands.length) return;
     const traits = table.row(frame.id);
-    const other = table.row(cand);
-    if (!traits || !other || !explode.traitDiffCells) return;
+    if (!traits || !explode.traitDiffCells) return;
     const show = !(player && player.isPlaying()) && !trip;
     const seq = ++twinSeq;
     const invite = twinInvite;
     twinInvite = false;
-    Promise.all([
-      explode.traitDiffCells(traits, other),
-      loadArt(cand),
-    ]).then(function (pair) {
+    Promise.all(cands.map(function (cand) {
+      const other = table.row(cand);
+      if (!other) return Promise.resolve(null);
+      return Promise.all([
+        explode.traitDiffCells(traits, other),
+        loadArt(cand),
+      ]).then(function (pair) {
+        return { cand: cand, cells: pair[0] || [], mate: pair[1] };
+      });
+    })).then(function (rows) {
       if (seq !== twinSeq || !lastFrame || lastFrame.id !== frame.id) return;
-      const cells = pair[0] || [];
-      const mate = pair[1];
-      if (!mate || !mate.svg || mate.unminted || !frame.svg || !explode.printDiffCells) {
-        twinOk[frame.id] = 1;
-        twinOk[cand] = 1;
-        if (show) {
-          twinCells = cells;
-          placeTwinProof(twinCells, invite);
+      const pulse = [];
+      const seen = Object.create(null);
+      rows.forEach(function (row) {
+        if (!row) return;
+        const key = twinKey(frame.id, row.cand);
+        const cells = row.cells;
+        const mate = row.mate;
+        if (!mate || !mate.svg || mate.unminted || !frame.svg || !explode.printDiffCells) {
+          twinOk[key] = 1;
+        } else {
+          const occ = Object.create(null);
+          cells.forEach(function (c) {
+            occ[c.x + "," + c.y] = true;
+          });
+          const extras = explode.printDiffCells(frame.svg, mate.svg).filter(function (c) {
+            return !occ[c.x + "," + c.y];
+          });
+          if (extras.length) {
+            twinOk[key] = -1;
+            return;
+          }
+          twinOk[key] = 1;
         }
-        setCaption(frame.id);
-        return;
-      }
-      const sight = Object.create(null);
-      cells.forEach(function (c) {
-        sight[c.x + "," + c.y] = true;
+        cells.forEach(function (c) {
+          const k = c.x + "," + c.y;
+          if (seen[k]) return;
+          seen[k] = true;
+          pulse.push(c);
+        });
       });
-      const extras = explode.printDiffCells(frame.svg, mate.svg).filter(function (c) {
-        return !sight[c.x + "," + c.y];
-      });
-      if (extras.length) {
-        twinOk[frame.id] = -1;
-        twinOk[cand] = -1;
-        setCaption(frame.id);
-        return;
-      }
-      twinOk[frame.id] = 1;
-      twinOk[cand] = 1;
-      if (show) {
-        twinCells = cells;
+      if (show && pulse.length && matesOf(frame.id).length) {
+        twinCells = pulse;
         placeTwinProof(twinCells, invite);
       }
       setCaption(frame.id);
@@ -923,26 +949,38 @@
     if (mode !== "watch" || filmPlaying) return;
     if (!lastFrame) return;
     const home = Number(lastFrame.id);
+    const queue = matesOf(home);
+    if (!queue.length) return;
     const resume = !!(player && player.isPlaying());
     beginTrip("twin", home, resume);
     const seq = trip.seq;
-    Promise.resolve(goTwin(twinId)).then(function () {
-      if (seq !== tripSeq) return;
-      tripTimer = window.setTimeout(function () {
-        if (seq !== tripSeq || !trip || trip.kind !== "twin") return;
-        player.goto(home).then(function () {
-          if (seq !== tripSeq) return;
-          trip = null;
-          if (resume && mode === "watch") player.play();
-          syncToggle();
-          setModeButtons();
-        }).catch(function () {
-          trip = null;
-          syncToggle();
-          setModeButtons();
-        });
-      }, FILM_BEAT_MS);
-    });
+    function finish() {
+      player.goto(home).then(function () {
+        if (seq !== tripSeq) return;
+        trip = null;
+        if (resume && mode === "watch") player.play();
+        syncToggle();
+        setModeButtons();
+      }).catch(function () {
+        trip = null;
+        syncToggle();
+        setModeButtons();
+      });
+    }
+    function step(i) {
+      if (seq !== tripSeq || !trip || trip.kind !== "twin") return;
+      if (i >= queue.length) {
+        finish();
+        return;
+      }
+      Promise.resolve(goTwin(queue[i])).then(function () {
+        if (seq !== tripSeq) return;
+        tripTimer = window.setTimeout(function () {
+          step(i + 1);
+        }, FILM_BEAT_MS);
+      });
+    }
+    step(0);
   }
 
   function twinCellAt(ev) {
@@ -2698,9 +2736,9 @@
       return;
     }
     if (player.isPlaying()) {
-      if (twins[lastFrame.id] && twinOk[lastFrame.id] === 1) {
+      if (matesOf(lastFrame.id).length) {
         ev.preventDefault();
-        openTwin(twins[lastFrame.id]);
+        openTwin();
         return;
       }
       if (filmDoorOf(lastFrame.id)) {
@@ -2996,6 +3034,24 @@
     twins = (function (bytes) {
       const map = Object.create(null);
       const kind = Object.create(null);
+      function addMate(a, b, tag) {
+        if (a === b) return;
+        if (!map[a]) map[a] = [];
+        if (!map[b]) map[b] = [];
+        if (map[a].indexOf(b) < 0) map[a].push(b);
+        if (map[b].indexOf(a) < 0) map[b].push(a);
+        if (!kind[a]) kind[a] = Object.create(null);
+        if (!kind[b]) kind[b] = Object.create(null);
+        kind[a][b] = tag;
+        kind[b][a] = tag;
+      }
+      function hasTag(id, tag) {
+        const k = kind[id];
+        if (!k) return false;
+        const list = map[id] || [];
+        for (let i = 0; i < list.length; i++) if (k[list[i]] === tag) return true;
+        return false;
+      }
       function pairSlot(slot, allowed, tag) {
         const groups = Object.create(null);
         for (let id = 1; id <= 9999; id++) {
@@ -3015,16 +3071,39 @@
           const b = bytes[(g[1] - 1) * 7 + slot];
           if (a === b) return;
           if (allowed && (allowed.indexOf(a) === -1 || allowed.indexOf(b) === -1)) return;
-          if (map[g[0]] || map[g[1]]) return;
-          map[g[0]] = g[1];
-          map[g[1]] = g[0];
-          kind[g[0]] = tag;
-          kind[g[1]] = tag;
+          if (hasTag(g[0], tag) || hasTag(g[1], tag)) return;
+          addMate(g[0], g[1], tag);
+        });
+      }
+      function pairRelicOccupancy() {
+        const groups = Object.create(null);
+        for (let id = 1; id <= 9999; id++) {
+          const i = (id - 1) * 7;
+          if (i + 6 >= bytes.length) break;
+          const parts = [];
+          for (let k = 0; k < 7; k++) if (k !== 3) parts.push(bytes[i + k]);
+          const key = parts.join(",");
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(id);
+        }
+        Object.keys(groups).forEach(function (k) {
+          const g = groups[k];
+          const none = [];
+          const worn = [];
+          for (let i = 0; i < g.length; i++) {
+            if (bytes[(g[i] - 1) * 7 + 3]) worn.push(g[i]);
+            else none.push(g[i]);
+          }
+          if (!none.length || !worn.length) return;
+          for (let n = 0; n < none.length; n++) {
+            for (let w = 0; w < worn.length; w++) addMate(none[n], worn[w], "relic");
+          }
         });
       }
       pairSlot(4, [7, 9], "sight");
       pairSlot(4, [1, 3], "sight");
       pairSlot(4, [10, 11], "sight");
+      pairRelicOccupancy();
       twinKind = kind;
       return map;
     })(table.bytes);
