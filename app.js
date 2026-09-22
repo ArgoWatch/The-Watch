@@ -835,6 +835,35 @@
     }
   }
 
+  function slotOccupancy(traits, slot) {
+    if (!traits || slot < 1 || (slot >= 2 && !traits[slot])) return Promise.resolve([]);
+    const bare = [traits[0], traits[1], 0, 0, 0, 0, 0];
+    const worn = bare.slice();
+    worn[slot] = traits[slot];
+    return explode.traitDiffCells(worn, bare);
+  }
+
+  function unchangedSlotClash(ta, tb, printDiffs) {
+    const jobs = [];
+    for (let s = 2; s <= 6; s++) {
+      if (!ta[s] || ta[s] !== tb[s]) continue;
+      jobs.push(slotOccupancy(ta, s));
+    }
+    if (!jobs.length) return Promise.resolve(false);
+    return Promise.all(jobs).then(function (occs) {
+      for (let i = 0; i < occs.length; i++) {
+        const hit = Object.create(null);
+        occs[i].forEach(function (c) {
+          hit[c.x + "," + c.y] = true;
+        });
+        for (let j = 0; j < printDiffs.length; j++) {
+          if (hit[printDiffs[j].x + "," + printDiffs[j].y]) return true;
+        }
+      }
+      return false;
+    });
+  }
+
   function bindTwinProof(frame) {
     clearTwinProof();
     if (!frame || mode !== "watch") return;
@@ -859,29 +888,41 @@
       });
     })).then(function (rows) {
       if (seq !== twinSeq || !lastFrame || lastFrame.id !== frame.id) return;
-      const pulse = [];
-      const seen = Object.create(null);
-      rows.forEach(function (row) {
-        if (!row) return;
+      return Promise.all(rows.map(function (row) {
+        if (!row) return null;
         const key = twinKey(frame.id, row.cand);
-        const cells = row.cells;
         const mate = row.mate;
         if (!mate || !mate.svg || mate.unminted || !frame.svg || !explode.printDiffCells) {
-          twinOk[key] = 1;
-        } else {
-          const occ = Object.create(null);
-          cells.forEach(function (c) {
-            occ[c.x + "," + c.y] = true;
-          });
-          const extras = explode.printDiffCells(frame.svg, mate.svg).filter(function (c) {
-            return !occ[c.x + "," + c.y];
-          });
-          if (extras.length) {
+          return null;
+        }
+        const occ = Object.create(null);
+        row.cells.forEach(function (c) {
+          occ[c.x + "," + c.y] = true;
+        });
+        const printDiffs = explode.printDiffCells(frame.svg, mate.svg);
+        const extras = printDiffs.filter(function (c) {
+          return !occ[c.x + "," + c.y];
+        });
+        if (extras.length) {
+          twinOk[key] = -1;
+          return null;
+        }
+        const other = table.row(row.cand);
+        return unchangedSlotClash(traits, other, printDiffs).then(function (clash) {
+          if (clash) {
             twinOk[key] = -1;
-            return;
+            return null;
           }
           twinOk[key] = 1;
-        }
+          return row.cells;
+        });
+      }));
+    }).then(function (cellSets) {
+      if (seq !== twinSeq || !lastFrame || lastFrame.id !== frame.id) return;
+      const pulse = [];
+      const seen = Object.create(null);
+      (cellSets || []).forEach(function (cells) {
+        if (!cells) return;
         cells.forEach(function (c) {
           const k = c.x + "," + c.y;
           if (seen[k]) return;
