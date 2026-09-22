@@ -843,22 +843,36 @@
     return explode.traitDiffCells(worn, bare);
   }
 
-  function unchangedSlotClash(ta, tb, printDiffs) {
-    const jobs = [];
-    for (let s = 2; s <= 6; s++) {
-      if (!ta[s] || ta[s] !== tb[s]) continue;
-      jobs.push(slotOccupancy(ta, s));
+  function changedSlot(ta, tb) {
+    let slot = -1;
+    for (let s = 0; s < 7; s++) {
+      if (Number(ta[s]) !== Number(tb[s])) {
+        if (slot >= 0) return -1;
+        slot = s;
+      }
     }
-    if (!jobs.length) return Promise.resolve(false);
-    return Promise.all(jobs).then(function (occs) {
-      for (let i = 0; i < occs.length; i++) {
-        const hit = Object.create(null);
-        occs[i].forEach(function (c) {
-          hit[c.x + "," + c.y] = true;
-        });
-        for (let j = 0; j < printDiffs.length; j++) {
-          if (hit[printDiffs[j].x + "," + printDiffs[j].y]) return true;
-        }
+    return slot;
+  }
+
+  function artifactTipClash(ta, tb, printDiffs) {
+    if (!ta || !tb || !ta[5] || ta[5] !== tb[5]) return Promise.resolve(false);
+    const slot = changedSlot(ta, tb);
+    const who = ta[slot] ? ta : tb;
+    return Promise.all([
+      slotOccupancy(who, 5),
+      slot >= 2 ? slotOccupancy(who, slot) : Promise.resolve([]),
+    ]).then(function (pair) {
+      const art = Object.create(null);
+      pair[0].forEach(function (c) {
+        art[c.x + "," + c.y] = true;
+      });
+      const own = Object.create(null);
+      pair[1].forEach(function (c) {
+        own[c.x + "," + c.y] = true;
+      });
+      for (let i = 0; i < printDiffs.length; i++) {
+        const k = printDiffs[i].x + "," + printDiffs[i].y;
+        if (art[k] && !own[k]) return true;
       }
       return false;
     });
@@ -908,7 +922,7 @@
           return null;
         }
         const other = table.row(row.cand);
-        return unchangedSlotClash(traits, other, printDiffs).then(function (clash) {
+        return artifactTipClash(traits, other, printDiffs).then(function (clash) {
           if (clash) {
             twinOk[key] = -1;
             return null;
