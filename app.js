@@ -876,8 +876,7 @@
           const extras = explode.printDiffCells(frame.svg, mate.svg).filter(function (c) {
             return !occ[c.x + "," + c.y];
           });
-          const tag = twinKind[frame.id] && twinKind[frame.id][row.cand];
-          if (extras.length && !(tag === "relic" && extras.length <= 1)) {
+          if (extras.length) {
             twinOk[key] = -1;
             return;
           }
