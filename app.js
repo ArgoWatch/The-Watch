@@ -161,6 +161,12 @@
     return out.length ? out : [];
   }
 
+  function parseHoldFromUrl() {
+    const q = new URLSearchParams(location.search).get("hold");
+    const out = crew && crew.parseHoldIds ? crew.parseHoldIds(parseIdList(q)) : parseIdList(q);
+    return out.length ? out : null;
+  }
+
   function parsePathFromUrl() {
     const q = new URLSearchParams(location.search);
     const raw = q.get("path");
@@ -182,10 +188,14 @@
     p.set("id", String(id));
     if (crewAddresses && crewAddresses.length) {
       p.set("crew", crewAddresses.join(","));
-      if (activePath && activePath !== "watch") p.set("path", activePath);
+      if (activePath && activePath !== "watch" && activePath !== "fleet") p.set("path", activePath);
       else p.set("path", "watch");
       if (arrangedList && arrangedList.length) p.set("order", arrangedList.join("."));
       if (crewOmit && crewOmit.length) p.set("omit", crewOmit.join("."));
+      if (!crewBusy && crewIds && crewIds.length) {
+        const hold = crewIds.join(".");
+        if (hold.length <= 2500) p.set("hold", hold);
+      }
     } else if (activePath && activePath !== "fleet") {
       p.set("path", activePath);
     }
@@ -1951,7 +1961,19 @@
     if (!got || !got.ids || !got.ids.length) return false;
     crewAddresses = got.addresses || crewAddresses;
     crewFirstIn = got.firstIn || crewFirstIn;
-    crewIds = idsWithoutOmit(got.ids);
+    let ids = idsWithoutOmit(got.ids);
+    if (live && crewIds && crewIds.length) {
+      const have = Object.create(null);
+      ids.forEach(function (id) {
+        have[id] = true;
+      });
+      crewIds.forEach(function (id) {
+        if (have[id]) return;
+        have[id] = true;
+        ids.push(id);
+      });
+    }
+    crewIds = ids;
     if (!crewIds.length) return false;
     if (opts && opts.order && opts.order.length && !live) {
       const allow = Object.create(null);
@@ -1974,6 +1996,23 @@
     opts = opts || {};
     crewBusy = false;
     salon.classList.remove("crew-busy");
+    if ((!got || !got.complete) && opts.hold && opts.hold.length) {
+      const ids = got && got.ids ? got.ids.slice() : [];
+      const have = Object.create(null);
+      ids.forEach(function (id) {
+        have[id] = true;
+      });
+      opts.hold.forEach(function (id) {
+        if (have[id]) return;
+        have[id] = true;
+        ids.push(id);
+      });
+      got = {
+        addresses: (got && got.addresses) || opts.addresses,
+        ids: ids,
+        firstIn: (got && got.firstIn) || Object.create(null),
+      };
+    }
     if (!applyCrewHoldings(got, opts, false)) {
       rebuildPathNav();
       setModeButtons();
@@ -2037,12 +2076,21 @@
     }
     const job = ++crewGen;
     if (opts.fromUrl && opts.omit) crewOmit = opts.omit.slice();
+    const seed = (opts.hold && opts.hold.length)
+      ? opts.hold
+      : (opts.fromUrl ? parseHoldFromUrl() : null);
+    if (seed && seed.length) opts.hold = seed;
     crewBusy = true;
     salon.classList.add("crew-busy");
     rebuildPathNav();
     showPaths();
     setModeButtons();
+    if (seed && seed.length) {
+      applyCrewHoldings({ addresses: addrs, ids: seed, firstIn: Object.create(null) }, opts, true);
+      rebuildPathNav();
+    }
     return crew.holdings(addrs, {
+      seed: seed || [],
       aborted: function () {
         return job !== crewGen;
       },
@@ -2055,7 +2103,12 @@
       if (job !== crewGen) return;
       return finishCrew(got, opts);
     }).catch(function () {
-      /* quiet */
+      if (job !== crewGen) return;
+      return finishCrew({
+        addresses: addrs,
+        ids: seed || [],
+        firstIn: Object.create(null),
+      }, opts);
     }).then(function () {
       if (job !== crewGen) return;
       crewBusy = false;
@@ -2882,6 +2935,7 @@
           path: q.get("path") || "watch",
           order: parseOrderFromUrl(),
           omit: parseOmitFromUrl(),
+          hold: parseHoldFromUrl(),
           keepPlay: player.isPlaying(),
         }).catch(function () {});
         return;
@@ -2924,6 +2978,7 @@
           path: q.get("path") || "watch",
           order: parseOrderFromUrl(),
           omit: parseOmitFromUrl(),
+          hold: parseHoldFromUrl(),
         }).catch(function () {});
         return;
       }
