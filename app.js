@@ -321,10 +321,17 @@
     return 24;
   }
 
+  function screenLooksSpoofed(cssW) {
+    const iw = window.innerWidth || 0;
+    if (iw < 720) return false;
+    return cssW <= iw + 32 && iw < 1700;
+  }
+
   function cssPxForInches(inches) {
     const s = screenCssSize();
-    const diag = assumedDiagonalInches(s.w, s.h, s.dpr);
-    const pxPerInch = Math.hypot(s.w, s.h) / diag;
+    const pxPerInch = screenLooksSpoofed(s.w)
+      ? 140
+      : Math.hypot(s.w, s.h) / assumedDiagonalInches(s.w, s.h, s.dpr);
     return inches * pxPerInch;
   }
 
