@@ -876,7 +876,8 @@
           const extras = explode.printDiffCells(frame.svg, mate.svg).filter(function (c) {
             return !occ[c.x + "," + c.y];
           });
-          if (extras.length) {
+          const tag = twinKind[frame.id] && twinKind[frame.id][row.cand];
+          if (extras.length && !(tag === "relic" && extras.length <= 1)) {
             twinOk[key] = -1;
             return;
           }
@@ -955,14 +956,14 @@
     beginTrip("twin", home, resume);
     const seq = trip.seq;
     function finish() {
+      trip = null;
       player.goto(home).then(function () {
         if (seq !== tripSeq) return;
-        trip = null;
         if (resume && mode === "watch") player.play();
+        else if (mode === "watch" && lastFrame) bindTwinProof(lastFrame);
         syncToggle();
         setModeButtons();
       }).catch(function () {
-        trip = null;
         syncToggle();
         setModeButtons();
       });
@@ -989,9 +990,20 @@
     if (!box.width || !box.height) return null;
     const x = Math.floor(((ev.clientX - box.left) / box.width) * 24);
     const y = Math.floor(((ev.clientY - box.top) / box.height) * 24);
+    if (x < 0 || y < 0 || x > 23 || y > 23) return null;
+    let minX = 24;
+    let minY = 24;
+    let maxX = -1;
+    let maxY = -1;
     for (let i = 0; i < twinCells.length; i++) {
-      if (twinCells[i].x === x && twinCells[i].y === y) return twinCells[i];
+      const c = twinCells[i];
+      if (c.x === x && c.y === y) return c;
+      if (c.x < minX) minX = c.x;
+      if (c.y < minY) minY = c.y;
+      if (c.x > maxX) maxX = c.x;
+      if (c.y > maxY) maxY = c.y;
     }
+    if (x >= minX && x <= maxX && y >= minY && y <= maxY) return twinCells[0];
     return null;
   }
 
