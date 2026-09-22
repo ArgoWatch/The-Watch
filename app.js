@@ -269,22 +269,37 @@
     if (btn) btn.setAttribute("aria-label", "renderer(" + full + ")");
   }
 
-  function assumedDiagonalInches(sw, sh) {
-    const dense = (window.devicePixelRatio || 1) >= 1.4;
-    const key = Math.round(sw) + "x" + Math.round(sh);
-    const known = {
+  function screenCssSize() {
+    const dpr = window.devicePixelRatio || 1;
+    let w = window.screen.width;
+    let h = window.screen.height;
+    const vw = window.innerWidth || w;
+    if (dpr > 1.2 && w > vw * dpr * 0.9) {
+      w = w / dpr;
+      h = h / dpr;
+    }
+    return { w: w, h: h, dpr: dpr };
+  }
+
+  function assumedDiagonalInches(cssW, cssH, dpr) {
+    const nw = Math.round(cssW * dpr);
+    const nh = Math.round(cssH * dpr);
+    const scaled = dpr >= 1.2;
+    const panel = {
+      "1280x720": 15.6,
       "1280x800": 13.3,
       "1366x768": 15.6,
       "1440x900": 13.3,
-      "1536x864": 14,
+      "1536x864": 15.6,
       "1600x900": 15.6,
       "1680x1050": 22,
-      "1920x1080": dense ? 15.6 : 24,
+      "1920x1080": scaled ? 15.6 : 20,
       "1920x1200": 16,
+      "2048x1152": 16,
       "2048x1280": 13.3,
       "2240x1400": 13.5,
       "2256x1504": 13.5,
-      "2560x1440": dense ? 16 : 27,
+      "2560x1440": scaled ? 16 : 27,
       "2560x1600": 16,
       "2880x1800": 16,
       "3000x2000": 14,
@@ -292,28 +307,25 @@
       "3200x2000": 16,
       "3440x1440": 34,
       "3456x2234": 16,
-      "3840x2160": dense ? 16 : 27,
+      "3840x2160": scaled ? 16 : 27,
       "3840x2400": 16,
       "5120x1440": 49,
     };
-    if (known[key]) return known[key];
-    if (dense && Math.max(sw, sh) <= 2560) return 15.6;
-    if (Math.max(sw, sh) >= 3000) return 27;
-    if (Math.max(sw, sh) >= 2500) return 27;
+    const native = panel[nw + "x" + nh];
+    if (native) return native;
+    const css = panel[Math.round(cssW) + "x" + Math.round(cssH)];
+    if (css) return css;
+    if (scaled && Math.max(cssW, cssH) <= 2560) return 15.6;
+    if (Math.max(nw, nh) >= 3000) return 27;
+    if (Math.max(nw, nh) >= 2500) return 27;
     return 24;
   }
 
   function cssPxForInches(inches) {
-    let sw = window.screen.width;
-    let sh = window.screen.height;
-    const dpr = window.devicePixelRatio || 1;
-    const vw = window.innerWidth || sw;
-    if (dpr > 1.2 && sw > vw * dpr * 0.9) {
-      sw = sw / dpr;
-      sh = sh / dpr;
-    }
-    const diag = assumedDiagonalInches(sw, sh);
-    return (inches * Math.hypot(sw, sh)) / diag;
+    const s = screenCssSize();
+    const diag = assumedDiagonalInches(s.w, s.h, s.dpr);
+    const pxPerInch = Math.hypot(s.w, s.h) / diag;
+    return inches * pxPerInch;
   }
 
   function scaleFor(want, cap, minScale) {
@@ -335,7 +347,7 @@
   }
 
   function fitPrint() {
-    const reserveY = 220;
+    const reserveY = 168;
     const apart = salon.classList.contains("take-apart");
     const two = salon.classList.contains("has-trait");
     const narrow = window.innerWidth < 720;

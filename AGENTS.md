@@ -13,7 +13,7 @@ Unofficial Argonauts player. Not affiliated with ACK or Muse Facktory.
 - Plain HTML, CSS, JS. No React, no bundler unless truly needed.
 - Local first. Publishing is GitHub Pages from this static tree (no server), on the **ArgoWatch** hobby account — not a company GitHub. Free Pages needs a **public** repo; private Pages needs GitHub Pro.
 - Integer pixel scaling only. image-rendering: pixelated.
-- The plate is 4 physical inches square (the print). Do not use CSS `4in` — browsers treat that as 96dpi (384px), which is not a ruler inch on most panels. Pick the integer scale nearest 4in from the CSS screen size and a typical diagonal. Do **not** use `navigator.getBattery` as a laptop test — Brave/Chrome expose it on desktops, so 1440p/4K monitors were treated as 16" panels and the plate ran large. Use `devicePixelRatio >= 1.4` for dense laptop panels (15.6–16"); 1.0-dpr 1440p/4K is 27". Shrink only if the window cannot fit it.
+- The plate is a **4 inch × 4 inch square** (each **side** is 4 in — not a 4 in diagonal, which would be ~2.8 in sides). Do not use CSS `4in` (96dpi = 384px). CSS pixels per inch = `hypot(screenCssW, screenCssH) / assumedPanelInches`; each side is `4 ×` that, then the nearest integer 24px scale. `screen.width` is CSS px; divide by `devicePixelRatio` only when the browser reports device pixels. Native panel = CSS × dpr. 1080p at 125%+ is a 15.6" laptop; 1080p at 100% is ~20" (between 15.6" laptop and 24" desktop). 1440p/4K at 100% are 27"; at 125%+ they are 16" laptops. Same math in every browser. Do not use `navigator.getBattery`. Shrink only if the window cannot fit the square. On a phone the cap is the viewport, so the plate is smaller.
 
 ## Contract
 - 0x387C41B0B2F1128dE44dB1Bcf8baad085f26392C
