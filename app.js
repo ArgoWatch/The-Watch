@@ -303,11 +303,28 @@
     return 24;
   }
 
+  function screenCssPixels() {
+    let sw = window.screen.width;
+    let sh = window.screen.height;
+    const dpr = window.devicePixelRatio || 1;
+    const vw = Math.max(window.innerWidth, 1);
+    const vh = Math.max(window.innerHeight, 1);
+    if (dpr > 1.01 && sw >= vw * dpr * 0.85 && sh >= vh * 0.45) {
+      sw = sw / dpr;
+      sh = sh / dpr;
+    }
+    const dpi = Math.hypot(sw, sh) / assumedDiagonalInches(sw, sh);
+    if (dpi > 180 && dpr > 1.01) {
+      sw = sw / dpr;
+      sh = sh / dpr;
+    }
+    return { w: sw, h: sh };
+  }
+
   function cssPxForInches(inches) {
-    const sw = window.screen.width;
-    const sh = window.screen.height;
-    const diag = assumedDiagonalInches(sw, sh);
-    return (inches * Math.hypot(sw, sh)) / diag;
+    const s = screenCssPixels();
+    const diag = assumedDiagonalInches(s.w, s.h);
+    return (inches * Math.hypot(s.w, s.h)) / diag;
   }
 
   function scaleFor(want, cap, minScale) {
