@@ -270,8 +270,8 @@
   }
 
   function assumedDiagonalInches(sw, sh) {
-    const laptop = typeof navigator.getBattery === "function";
-    const key = sw + "x" + sh;
+    const dense = (window.devicePixelRatio || 1) >= 1.4;
+    const key = Math.round(sw) + "x" + Math.round(sh);
     const known = {
       "1280x800": 13.3,
       "1366x768": 15.6,
@@ -279,12 +279,12 @@
       "1536x864": 14,
       "1600x900": 15.6,
       "1680x1050": 22,
-      "1920x1080": laptop ? 15.6 : 24,
+      "1920x1080": dense ? 15.6 : 24,
       "1920x1200": 16,
       "2048x1280": 13.3,
       "2240x1400": 13.5,
       "2256x1504": 13.5,
-      "2560x1440": laptop ? 16 : 27,
+      "2560x1440": dense ? 16 : 27,
       "2560x1600": 16,
       "2880x1800": 16,
       "3000x2000": 14,
@@ -292,39 +292,28 @@
       "3200x2000": 16,
       "3440x1440": 34,
       "3456x2234": 16,
-      "3840x2160": laptop ? 16 : 27,
+      "3840x2160": dense ? 16 : 27,
       "3840x2400": 16,
       "5120x1440": 49,
     };
     if (known[key]) return known[key];
-    if (laptop && Math.max(sw, sh) <= 2560) return 15.6;
+    if (dense && Math.max(sw, sh) <= 2560) return 15.6;
     if (Math.max(sw, sh) >= 3000) return 27;
     if (Math.max(sw, sh) >= 2500) return 27;
     return 24;
   }
 
-  function screenCssPixels() {
+  function cssPxForInches(inches) {
     let sw = window.screen.width;
     let sh = window.screen.height;
     const dpr = window.devicePixelRatio || 1;
-    const vw = Math.max(window.innerWidth, 1);
-    const vh = Math.max(window.innerHeight, 1);
-    if (dpr > 1.01 && sw >= vw * dpr * 0.85 && sh >= vh * 0.45) {
+    const vw = window.innerWidth || sw;
+    if (dpr > 1.2 && sw > vw * dpr * 0.9) {
       sw = sw / dpr;
       sh = sh / dpr;
     }
-    const dpi = Math.hypot(sw, sh) / assumedDiagonalInches(sw, sh);
-    if (dpi > 180 && dpr > 1.01) {
-      sw = sw / dpr;
-      sh = sh / dpr;
-    }
-    return { w: sw, h: sh };
-  }
-
-  function cssPxForInches(inches) {
-    const s = screenCssPixels();
-    const diag = assumedDiagonalInches(s.w, s.h);
-    return (inches * Math.hypot(s.w, s.h)) / diag;
+    const diag = assumedDiagonalInches(sw, sh);
+    return (inches * Math.hypot(sw, sh)) / diag;
   }
 
   function scaleFor(want, cap, minScale) {
