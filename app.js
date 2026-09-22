@@ -167,6 +167,21 @@
     return out.length ? out : null;
   }
 
+  function parseRecvFromUrl(hold) {
+    const raw = new URLSearchParams(location.search).get("recv");
+    if (!raw || !hold || !hold.length) return null;
+    const parts = String(raw).split(".");
+    const out = Object.create(null);
+    let n = 0;
+    for (let i = 0; i < hold.length && i < parts.length; i++) {
+      const b = Number(parts[i]);
+      if (!Number.isFinite(b) || b <= 0) continue;
+      out[hold[i]] = b;
+      n += 1;
+    }
+    return n ? out : null;
+  }
+
   function parsePathFromUrl() {
     const q = new URLSearchParams(location.search);
     const raw = q.get("path");
@@ -194,7 +209,15 @@
       if (crewOmit && crewOmit.length) p.set("omit", crewOmit.join("."));
       if (!crewBusy && crewIds && crewIds.length) {
         const hold = crewIds.join(".");
-        if (hold.length <= 2500) p.set("hold", hold);
+        if (hold.length <= 2500) {
+          p.set("hold", hold);
+          if (crewFirstIn) {
+            const recv = crewIds.map(function (id) {
+              return crewFirstIn[id] != null ? String(Math.floor(crewFirstIn[id])) : "";
+            }).join(".");
+            if (/[1-9]/.test(recv) && hold.length + recv.length <= 4000) p.set("recv", recv);
+          }
+        }
       }
     } else if (activePath && activePath !== "fleet") {
       p.set("path", activePath);
@@ -1960,7 +1983,15 @@
   function applyCrewHoldings(got, opts, live) {
     if (!got || !got.ids || !got.ids.length) return false;
     crewAddresses = got.addresses || crewAddresses;
-    crewFirstIn = got.firstIn || crewFirstIn;
+    if (got.firstIn) {
+      if (!crewFirstIn) crewFirstIn = Object.create(null);
+      Object.keys(got.firstIn).forEach(function (k) {
+        const b = Number(got.firstIn[k]);
+        if (!Number.isFinite(b) || b <= 0) return;
+        const id = Number(k);
+        if (crewFirstIn[id] == null || b < crewFirstIn[id]) crewFirstIn[id] = b;
+      });
+    }
     let ids = idsWithoutOmit(got.ids);
     if (live && crewIds && crewIds.length) {
       const have = Object.create(null);
@@ -2080,17 +2111,19 @@
       ? opts.hold
       : (opts.fromUrl ? parseHoldFromUrl() : null);
     if (seed && seed.length) opts.hold = seed;
+    const seedIn = opts.firstIn || (opts.fromUrl ? parseRecvFromUrl(seed) : null);
     crewBusy = true;
     salon.classList.add("crew-busy");
     rebuildPathNav();
     showPaths();
     setModeButtons();
     if (seed && seed.length) {
-      applyCrewHoldings({ addresses: addrs, ids: seed, firstIn: Object.create(null) }, opts, true);
+      applyCrewHoldings({ addresses: addrs, ids: seed, firstIn: seedIn || Object.create(null) }, opts, true);
       rebuildPathNav();
     }
     return crew.holdings(addrs, {
       seed: seed || [],
+      seedFirstIn: seedIn || Object.create(null),
       aborted: function () {
         return job !== crewGen;
       },
