@@ -133,9 +133,12 @@
     return 1;
   }
 
+  function queryGet(name) {
+    return new URLSearchParams(location.search).get(name);
+  }
+
   function parseCrewFromUrl() {
-    const q = new URLSearchParams(location.search);
-    const raw = q.get("crew");
+    const raw = queryGet("crew");
     if (!raw || !crew || !crew.parseAddresses) return [];
     return crew.parseAddresses(raw.replace(/[.+]/g, " "));
   }
@@ -150,25 +153,21 @@
   }
 
   function parseOrderFromUrl() {
-    const q = new URLSearchParams(location.search).get("order");
-    const out = parseIdList(q);
+    const out = parseIdList(queryGet("order"));
     return out.length ? out : null;
   }
 
   function parseOmitFromUrl() {
-    const q = new URLSearchParams(location.search).get("omit");
-    const out = parseIdList(q);
-    return out.length ? out : [];
+    return parseIdList(queryGet("omit"));
   }
 
   function parseHoldFromUrl() {
-    const q = new URLSearchParams(location.search).get("hold");
-    const out = crew && crew.parseHoldIds ? crew.parseHoldIds(parseIdList(q)) : parseIdList(q);
+    const out = crew && crew.parseHoldIds ? crew.parseHoldIds(parseIdList(queryGet("hold"))) : parseIdList(queryGet("hold"));
     return out.length ? out : null;
   }
 
   function parseRecvFromUrl(hold) {
-    const raw = new URLSearchParams(location.search).get("recv");
+    const raw = queryGet("recv");
     if (!raw || !hold || !hold.length) return null;
     const parts = String(raw).split(".");
     const out = Object.create(null);
@@ -182,9 +181,25 @@
     return n ? out : null;
   }
 
+  function crewOptsFromSearch(extra) {
+    const opts = {
+      fromUrl: true,
+      id: parseDeepId(),
+      path: queryGet("path") || "watch",
+      order: parseOrderFromUrl(),
+      omit: parseOmitFromUrl(),
+      hold: parseHoldFromUrl(),
+    };
+    if (extra) {
+      Object.keys(extra).forEach(function (k) {
+        opts[k] = extra[k];
+      });
+    }
+    return opts;
+  }
+
   function parsePathFromUrl() {
-    const q = new URLSearchParams(location.search);
-    const raw = q.get("path");
+    const raw = queryGet("path");
     if (crewIds) {
       const s = String(raw || "watch").toLowerCase();
       if (s === "fleet") return "fleet";
@@ -194,7 +209,7 @@
       return "watch";
     }
     if (raw) return paths.parse(raw);
-    if (q.get("bones") === "1") return "unclothed";
+    if (queryGet("bones") === "1") return "unclothed";
     return "fleet";
   }
 
@@ -1839,6 +1854,54 @@
     return out;
   }
 
+  function mergeFirstIn(into, src) {
+    if (!src) return into;
+    if (!into) into = Object.create(null);
+    Object.keys(src).forEach(function (k) {
+      const b = Number(src[k]);
+      if (!Number.isFinite(b) || b <= 0) return;
+      const id = Number(k);
+      if (into[id] == null || b < into[id]) into[id] = b;
+    });
+    return into;
+  }
+
+  function mergeUniqueIds(base, extra) {
+    const out = base ? base.slice() : [];
+    const have = Object.create(null);
+    out.forEach(function (id) {
+      have[id] = true;
+    });
+    (extra || []).forEach(function (id) {
+      if (have[id]) return;
+      have[id] = true;
+      out.push(id);
+    });
+    return out;
+  }
+
+  function anyPrevWalletKept(addrs) {
+    const prev = crewAddresses || [];
+    if (!prev.length) return false;
+    return prev.some(function (a) {
+      return addrs.indexOf(a) >= 0;
+    });
+  }
+
+  function resetCrewShow() {
+    abandonTrip();
+    crewIds = [];
+    crewLists = null;
+    echoPicksList = [];
+    echoCursor = 0;
+    arrangedList = null;
+    crewFirstIn = Object.create(null);
+    crewOmit = [];
+    echoIdle = true;
+    stripPick = null;
+    paintStrip();
+  }
+
   function snapshotCrew() {
     if (!crewAddresses || !crewAddresses.length || !crewIds || !crewIds.length) return;
     lastCrew = {
@@ -1854,20 +1917,13 @@
   }
 
   function parkLiveCrew() {
-    abandonTrip();
     crewGen += 1;
+    resetCrewShow();
     crewIds = null;
     crewAddresses = null;
-    crewLists = null;
-    echoPicksList = [];
-    echoCursor = 0;
-    arrangedList = null;
     crewFirstIn = null;
-    crewOmit = [];
     crewBusy = false;
     crewFolded = false;
-    echoIdle = true;
-    stripPick = null;
     salon.classList.remove("crew-busy");
     paintStrip();
   }
@@ -1983,26 +2039,10 @@
   function applyCrewHoldings(got, opts, live) {
     if (!got || !got.ids || !got.ids.length) return false;
     crewAddresses = got.addresses || crewAddresses;
-    if (got.firstIn) {
-      if (!crewFirstIn) crewFirstIn = Object.create(null);
-      Object.keys(got.firstIn).forEach(function (k) {
-        const b = Number(got.firstIn[k]);
-        if (!Number.isFinite(b) || b <= 0) return;
-        const id = Number(k);
-        if (crewFirstIn[id] == null || b < crewFirstIn[id]) crewFirstIn[id] = b;
-      });
-    }
+    crewFirstIn = mergeFirstIn(crewFirstIn, got.firstIn);
     let ids = idsWithoutOmit(got.ids);
-    if (live && crewIds && crewIds.length) {
-      const have = Object.create(null);
-      ids.forEach(function (id) {
-        have[id] = true;
-      });
-      crewIds.forEach(function (id) {
-        if (have[id]) return;
-        have[id] = true;
-        ids.push(id);
-      });
+    if (live && opts && opts.unionLive && crewIds && crewIds.length) {
+      ids = mergeUniqueIds(ids, crewIds);
     }
     crewIds = ids;
     if (!crewIds.length) return false;
@@ -2025,22 +2065,13 @@
 
   function finishCrew(got, opts) {
     opts = opts || {};
+    const already = !crewBusy && !!(crewIds && crewIds.length);
     crewBusy = false;
     salon.classList.remove("crew-busy");
     if ((!got || !got.complete) && opts.hold && opts.hold.length) {
-      const ids = got && got.ids ? got.ids.slice() : [];
-      const have = Object.create(null);
-      ids.forEach(function (id) {
-        have[id] = true;
-      });
-      opts.hold.forEach(function (id) {
-        if (have[id]) return;
-        have[id] = true;
-        ids.push(id);
-      });
       got = {
         addresses: (got && got.addresses) || opts.addresses,
-        ids: ids,
+        ids: mergeUniqueIds(got && got.ids, opts.hold),
         firstIn: (got && got.firstIn) || Object.create(null),
       };
     }
@@ -2049,16 +2080,20 @@
       setModeButtons();
       return Promise.resolve();
     }
-    const want = resolveCrewPath(opts.path || "watch");
+    const want = resolveCrewPath(opts.path || activePath || "watch");
     adoptPath(want, { force: true });
     rebuildPathNav();
-    const list = listForPath(want) || crewIds;
-    let dest = Number(opts.id);
-    if (!dest || list.indexOf(dest) < 0) dest = list[0];
     showPaths();
     setModeButtons();
     snapshotCrew();
     paintCrewFields();
+    const list = listForPath(want) || crewIds;
+    if (already && list.indexOf(player.getId()) >= 0) {
+      syncUrl(player.getId());
+      return Promise.resolve();
+    }
+    let dest = Number(opts.id);
+    if (!dest || list.indexOf(dest) < 0) dest = list[0];
     return player.goto(dest, { keepPlay: opts.keepPlay }).then(function () {
       syncUrl(dest);
     });
@@ -2112,6 +2147,11 @@
       : (opts.fromUrl ? parseHoldFromUrl() : null);
     if (seed && seed.length) opts.hold = seed;
     const seedIn = opts.firstIn || (opts.fromUrl ? parseRecvFromUrl(seed) : null);
+    opts.unionLive = anyPrevWalletKept(addrs);
+    if (!opts.unionLive) {
+      resetCrewShow();
+      crewAddresses = addrs.slice();
+    }
     crewBusy = true;
     salon.classList.add("crew-busy");
     rebuildPathNav();
@@ -2130,7 +2170,12 @@
       onProgress: function (got) {
         if (job !== crewGen) return;
         applyCrewHoldings(got, opts, true);
+        if (got.idsReady && crewBusy) {
+          crewBusy = false;
+          salon.classList.remove("crew-busy");
+        }
         rebuildPathNav();
+        setModeButtons();
       },
     }).then(function (got) {
       if (job !== crewGen) return;
@@ -2961,16 +3006,7 @@
     (function applyBootPath() {
       const crewQ = parseCrewFromUrl();
       if (crewQ.length) {
-        const q = new URLSearchParams(location.search);
-        loadCrew(crewQ.join(","), {
-          fromUrl: true,
-          id: parseDeepId(),
-          path: q.get("path") || "watch",
-          order: parseOrderFromUrl(),
-          omit: parseOmitFromUrl(),
-          hold: parseHoldFromUrl(),
-          keepPlay: player.isPlaying(),
-        }).catch(function () {});
+        loadCrew(crewQ.join(","), crewOptsFromSearch({ keepPlay: player.isPlaying() })).catch(function () {});
         return;
       }
       const wanted = parsePathFromUrl();
@@ -3003,16 +3039,8 @@
     const crewQ = parseCrewFromUrl();
     if (crewQ.length) {
       const same = crewAddresses && crewQ.join(",") === crewAddresses.join(",");
-      const q = new URLSearchParams(location.search);
       if (!same) {
-        loadCrew(crewQ.join(","), {
-          fromUrl: true,
-          id: parseDeepId(),
-          path: q.get("path") || "watch",
-          order: parseOrderFromUrl(),
-          omit: parseOmitFromUrl(),
-          hold: parseHoldFromUrl(),
-        }).catch(function () {});
+        loadCrew(crewQ.join(","), crewOptsFromSearch()).catch(function () {});
         return;
       }
     } else if (crewIds) {
