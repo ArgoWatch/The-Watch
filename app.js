@@ -1248,7 +1248,94 @@
     return luma >= 0.5 ? "is-dark" : "is-light";
   }
 
+  let fleeceRaf = 0;
+  let fleeceCanvas = null;
+
+  function stopFleeceBreath() {
+    if (fleeceRaf) {
+      window.cancelAnimationFrame(fleeceRaf);
+      fleeceRaf = 0;
+    }
+    if (fleeceCanvas && fleeceCanvas.parentNode) fleeceCanvas.parentNode.removeChild(fleeceCanvas);
+    fleeceCanvas = null;
+  }
+
+  function startFleeceBreath(frame) {
+    stopFleeceBreath();
+    if (!frame || !frame.fleece || !frame.fleece.mask || !frame.svg) return;
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const mask = frame.fleece.mask;
+    const tok = Number(frame.id) || 1;
+    const src = decode.svgToCanvas(frame.svg);
+    const sctx = src.getContext("2d");
+    if (!sctx) return;
+    const base = sctx.getImageData(0, 0, 24, 24).data;
+    const canvas = document.createElement("canvas");
+    canvas.width = 24;
+    canvas.height = 24;
+    canvas.className = "fleece-breath";
+    canvas.setAttribute("aria-hidden", "true");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.imageSmoothingEnabled = false;
+    pixel.appendChild(canvas);
+    fleeceCanvas = canvas;
+    let s = ((tok * 7919 + 13) >>> 0) || 1;
+    const seed = [];
+    for (let k = 0; k < 128; k++) {
+      s ^= s << 13;
+      s ^= s >>> 17;
+      s ^= s << 5;
+      seed.push((s >>> 0) / 4294967296);
+    }
+    const t0 = performance.now();
+    function mix(o, i, rgb, f) {
+      if (f <= 0) return;
+      if (f > 1) f = 1;
+      o[i] = o[i] + (rgb[0] - o[i]) * f;
+      o[i + 1] = o[i + 1] + (rgb[1] - o[i + 1]) * f;
+      o[i + 2] = o[i + 2] + (rgb[2] - o[i + 2]) * f;
+    }
+    function tick(now) {
+      if (fleeceCanvas !== canvas) return;
+      const t = Math.floor(((now - t0) / 1000) * 10) / 10;
+      const img = ctx.createImageData(24, 24);
+      const o = img.data;
+      o.set(base);
+      const col = [255, 246, 200];
+      const amt = 0.28;
+      const rate = 0.9;
+      for (let s3 = 0; s3 < 2; s3++) {
+        const ph3 = t * rate + s3 / 2;
+        const cyc3 = Math.floor(ph3);
+        const f3 = ph3 - cyc3;
+        const i3 = mask[Math.floor(seed[(cyc3 * 7 + s3 * 13 + 41) & 127] * mask.length)] * 4;
+        mix(o, i3, col, amt * (f3 < 0.35 ? f3 / 0.35 : Math.max(0, 1 - (f3 - 0.35) / 0.45)));
+      }
+      let lo2 = 1e9;
+      let hi2 = -1e9;
+      for (let m = 0; m < mask.length; m++) {
+        const q = mask[m];
+        const d = (q % 24) * 0.6 + ((q / 24) | 0) * 0.8;
+        if (d < lo2) lo2 = d;
+        if (d > hi2) hi2 = d;
+      }
+      const Pf = 5.6;
+      const uf = 0.5 - 0.5 * Math.cos(((t % Pf) / Pf) * Math.PI * 2);
+      const pf = lo2 - 1.6 + uf * (hi2 - lo2 + 3.2);
+      for (let m = 0; m < mask.length; m++) {
+        const q = mask[m];
+        const d = (q % 24) * 0.6 + ((q / 24) | 0) * 0.8;
+        mix(o, q * 4, [255, 220, 120], 0.3 * Math.max(0, 1 - Math.abs(d - pf) / 1.6));
+      }
+      ctx.putImageData(img, 0, 0);
+      fleeceRaf = window.requestAnimationFrame(tick);
+    }
+    fleeceRaf = window.requestAnimationFrame(tick);
+  }
+
   function mountArt(frame) {
+    stopFleeceBreath();
     clearStampLamp();
     window.clearTimeout(revealTimer);
     revealTimer = 0;
@@ -1320,6 +1407,7 @@
       if (frame.source !== "render") {
         scheduleStampLamp(svg);
         bindTwinProof(frame);
+        startFleeceBreath(frame);
       }
     } catch (err) {
       status.textContent = err.message || "SVG failed";
@@ -1422,7 +1510,10 @@
   function loadIsolation(id, svg) {
     function paintChips(traits) {
       if (!traits || mode !== "apart") return;
-      plates.loadChips(Array.from(traits), svg || "").catch(function () {});
+      const fleeceMask = lastFrame && Number(lastFrame.id) === Number(id) && lastFrame.fleece
+        ? lastFrame.fleece.mask
+        : null;
+      plates.loadChips(Array.from(traits), svg || "", { fleeceMask: fleeceMask }).catch(function () {});
     }
     const snap = table.row(id);
     if (snap) {

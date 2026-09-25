@@ -700,12 +700,20 @@ a.plate-harbor:hover {
   image-rendering: crisp-edges;
 }
 
-.pixel img {
+.pixel img,
+.pixel canvas.fleece-breath {
   display: block;
   width: 24px;
   height: 24px;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
+}
+
+.pixel canvas.fleece-breath {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
 }
 
 /* Integer scales 4–40. Main plate ~4in; isolation half that. */
