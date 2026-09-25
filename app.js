@@ -1510,10 +1510,7 @@
   function loadIsolation(id, svg) {
     function paintChips(traits) {
       if (!traits || mode !== "apart") return;
-      const fleeceMask = lastFrame && Number(lastFrame.id) === Number(id) && lastFrame.fleece
-        ? lastFrame.fleece.mask
-        : null;
-      plates.loadChips(Array.from(traits), svg || "", { fleeceMask: fleeceMask }).catch(function () {});
+      plates.loadChips(Array.from(traits), svg || "").catch(function () {});
     }
     const snap = table.row(id);
     if (snap) {
