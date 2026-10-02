@@ -701,7 +701,8 @@ a.plate-harbor:hover {
 }
 
 .pixel img,
-.pixel canvas.fleece-breath {
+.pixel canvas.fleece-breath,
+.pixel canvas.anaglyph-split {
   display: block;
   width: 24px;
   height: 24px;
@@ -709,7 +710,8 @@ a.plate-harbor:hover {
   image-rendering: crisp-edges;
 }
 
-.pixel canvas.fleece-breath {
+.pixel canvas.fleece-breath,
+.pixel canvas.anaglyph-split {
   position: absolute;
   left: 0;
   top: 0;
