@@ -1279,9 +1279,14 @@
 
   function startFleeceBreath(frame) {
     stopFleeceBreath();
-    if (!frame || !frame.fleece || !frame.fleece.mask || !frame.svg) return;
+    if (!frame || !frame.svg) return;
+    let spec = frame.fleece;
+    if ((!spec || !spec.mask || !spec.mask.length) && decode.parseFleeceBreath) {
+      spec = decode.parseFleeceBreath("", frame.attributes, frame.svg);
+    }
+    if (!spec || !spec.mask || !spec.mask.length) return;
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const mask = frame.fleece.mask;
+    const mask = spec.mask;
     const tok = Number(frame.id) || 1;
     const src = decode.svgToCanvas(frame.svg);
     const sctx = src.getContext("2d");
