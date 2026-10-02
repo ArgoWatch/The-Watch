@@ -3387,6 +3387,36 @@
         kind[a][b] = tag;
         kind[b][a] = tag;
       }
+      function hasTag(id, tag) {
+        const k = kind[id];
+        if (!k) return false;
+        const list = map[id] || [];
+        for (let i = 0; i < list.length; i++) if (k[list[i]] === tag) return true;
+        return false;
+      }
+      function pairSlot(slot, allowed, tag) {
+        const groups = Object.create(null);
+        for (let id = 1; id <= 9999; id++) {
+          const i = (id - 1) * 7;
+          if (i + 6 >= bytes.length) break;
+          if (allowed && allowed.indexOf(bytes[i + slot]) === -1) continue;
+          const parts = [];
+          for (let k = 0; k < 7; k++) if (k !== slot) parts.push(bytes[i + k]);
+          const key = parts.join(",");
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(id);
+        }
+        Object.keys(groups).forEach(function (k) {
+          const g = groups[k];
+          if (g.length !== 2) return;
+          const a = bytes[(g[0] - 1) * 7 + slot];
+          const b = bytes[(g[1] - 1) * 7 + slot];
+          if (a === b) return;
+          if (allowed && (allowed.indexOf(a) === -1 || allowed.indexOf(b) === -1)) return;
+          if (hasTag(g[0], tag) || hasTag(g[1], tag)) return;
+          addMate(g[0], g[1], tag);
+        });
+      }
       function pairRelicOccupancy() {
         const groups = Object.create(null);
         for (let id = 1; id <= 9999; id++) {
@@ -3412,6 +3442,7 @@
           }
         });
       }
+      pairSlot(4, [1, 3], "sight");
       pairRelicOccupancy();
       twinKind = kind;
       return map;
