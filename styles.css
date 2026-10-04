@@ -702,7 +702,6 @@ a.plate-harbor:hover {
 
 .pixel img,
 .pixel canvas.fleece-breath,
-.pixel canvas.anaglyph-split,
 .pixel iframe.player-cage {
   display: block;
   width: 24px;
@@ -717,8 +716,7 @@ a.plate-harbor:hover {
   background: #000;
 }
 
-.pixel canvas.fleece-breath,
-.pixel canvas.anaglyph-split {
+.pixel canvas.fleece-breath {
   position: absolute;
   left: 0;
   top: 0;

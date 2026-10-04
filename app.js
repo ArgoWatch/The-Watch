@@ -96,17 +96,9 @@
   let twinSeq = 0;
   let twinInvite = false;
   let twinPress = 0;
-  let lensCells = null;
-  let lensSeq = 0;
   const CAGE_CSP = "default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
   let artView = "print";
   let playerBlob = "";
-  let anaglyphOn = false;
-  let anaglyphAt = 0;
-  let anaglyphOffAt = undefined;
-  let anaglyphRaf = 0;
-  let anaglyphCanvas = null;
-  const SIGHT_3D = 5;
   let films = Object.create(null);
   let filmSeq = 0;
   let filmPlaying = false;
@@ -1081,10 +1073,6 @@
     return gridCellAt(twinCells, ev);
   }
 
-  function lensCellAt(ev) {
-    return gridCellAt(lensCells, ev);
-  }
-
   function setTwinHot(on) {
     const proof = pixel.querySelector(".twin-proof");
     if (!proof) return;
@@ -1177,7 +1165,6 @@
   function paintFilmFrame(frame) {
     clearStampLamp();
     clearTwinProof();
-    stopAnaglyph(true);
     if (!frame || frame.unminted || frame.source === "render" || frame.error) return false;
     if (decode.frameIsFate(frame)) return false;
     if (frame.kind === "gif" || frame.kind === "raster") return false;
@@ -1364,164 +1351,6 @@
     fleeceRaf = window.requestAnimationFrame(tick);
   }
 
-  function cssRgb(v) {
-    if (!v) return null;
-    const m = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i.exec(v);
-    if (m) return [Number(m[1]), Number(m[2]), Number(m[3])];
-    if (v.charAt(0) === "#") return decode.hexRgb(v);
-    return null;
-  }
-
-  function usedOpacity(el, root) {
-    let o = 1;
-    let n = el;
-    while (n && n !== root) {
-      const cs = window.getComputedStyle(n);
-      const p = parseFloat(cs.opacity);
-      if (Number.isFinite(p)) o *= p;
-      n = n.parentElement;
-    }
-    const fo = parseFloat(window.getComputedStyle(el).fillOpacity);
-    if (Number.isFinite(fo)) o *= fo;
-    return Math.max(0, Math.min(1, o));
-  }
-
-  function samplePlate(svg) {
-    const img = { data: new Uint8ClampedArray(24 * 24 * 4) };
-    const d = img.data;
-    const rects = svg.getElementsByTagName("rect");
-    for (let i = 0; i < rects.length; i++) {
-      const r = rects[i];
-      if (r.classList && r.classList.contains("twin-cell")) continue;
-      const x0 = Math.max(0, Math.floor(r.x.animVal.value));
-      const y0 = Math.max(0, Math.floor(r.y.animVal.value));
-      const x1 = Math.min(24, Math.ceil(r.x.animVal.value + r.width.animVal.value));
-      const y1 = Math.min(24, Math.ceil(r.y.animVal.value + r.height.animVal.value));
-      const rgb = cssRgb(window.getComputedStyle(r).fill);
-      if (!rgb) continue;
-      const o = usedOpacity(r, svg);
-      for (let y = y0; y < y1; y++) {
-        for (let x = x0; x < x1; x++) {
-          const p = (y * 24 + x) * 4;
-          d[p] = rgb[0] * o + d[p] * (1 - o);
-          d[p + 1] = rgb[1] * o + d[p + 1] * (1 - o);
-          d[p + 2] = rgb[2] * o + d[p + 2] * (1 - o);
-          d[p + 3] = 255;
-        }
-      }
-    }
-    return img;
-  }
-
-  function applyAnaglyph(o, t, on, at, offAt) {
-    if (!on && (offAt === undefined || t - offAt >= 1.4)) return false;
-    const D = 1.2;
-    const src = new Uint8ClampedArray(o);
-    const since = t - (on ? at : offAt);
-    for (let y = 0; y < 24; y++) {
-      for (let x = 0; x < 24; x++) {
-        let k5 = Math.max(0, Math.min(1, ((since / D) * 30 - 3 - x) / 4));
-        if (!on) k5 = 1 - k5;
-        if (k5 <= 0) continue;
-        const i5 = (y * 24 + x) * 4;
-        const l = (y * 24 + Math.max(0, x - 1)) * 4;
-        const rgt = (y * 24 + Math.min(23, x + 1)) * 4;
-        o[i5] = src[i5] + (src[l] - src[i5]) * k5;
-        o[i5 + 1] = src[i5 + 1] + (src[rgt + 1] - src[i5 + 1]) * k5;
-        o[i5 + 2] = src[i5 + 2] + (src[rgt + 2] - src[i5 + 2]) * k5;
-      }
-    }
-    return true;
-  }
-
-  function stopAnaglyph(reset) {
-    if (anaglyphRaf) {
-      window.cancelAnimationFrame(anaglyphRaf);
-      anaglyphRaf = 0;
-    }
-    if (anaglyphCanvas && anaglyphCanvas.parentNode) anaglyphCanvas.parentNode.removeChild(anaglyphCanvas);
-    anaglyphCanvas = null;
-    if (reset) {
-      anaglyphOn = false;
-      anaglyphAt = 0;
-      anaglyphOffAt = undefined;
-    }
-  }
-
-  function tickAnaglyph() {
-    const svg = pixel.querySelector("svg");
-    const canvas = anaglyphCanvas;
-    if (!svg || !canvas) {
-      stopAnaglyph(false);
-      return;
-    }
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const sampled = samplePlate(svg);
-    const t = performance.now() / 1000;
-    const keep = applyAnaglyph(sampled.data, t, anaglyphOn, anaglyphAt, anaglyphOffAt);
-    const img = ctx.createImageData(24, 24);
-    img.data.set(sampled.data);
-    for (let i = 3; i < img.data.length; i += 4) img.data[i] = 255;
-    ctx.putImageData(img, 0, 0);
-    if (!keep) {
-      stopAnaglyph(true);
-      return;
-    }
-    anaglyphRaf = window.requestAnimationFrame(tickAnaglyph);
-  }
-
-  function startAnaglyphLoop() {
-    if (anaglyphRaf) return;
-    const svg = pixel.querySelector("svg");
-    if (!svg) return;
-    const canvas = document.createElement("canvas");
-    canvas.width = 24;
-    canvas.height = 24;
-    canvas.className = "anaglyph-split";
-    canvas.setAttribute("aria-hidden", "true");
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.imageSmoothingEnabled = false;
-    if (svg.nextSibling) pixel.insertBefore(canvas, svg.nextSibling);
-    else pixel.appendChild(canvas);
-    anaglyphCanvas = canvas;
-    tickAnaglyph();
-  }
-
-  function toggleAnaglyph() {
-    if (!lensCells || !lensCells.length) return;
-    if (reduceMotion.matches) return;
-    const now = performance.now() / 1000;
-    if (anaglyphOn) {
-      anaglyphOn = false;
-      anaglyphOffAt = now;
-    } else {
-      anaglyphOn = true;
-      anaglyphAt = now;
-      anaglyphOffAt = undefined;
-    }
-    startAnaglyphLoop();
-  }
-
-  function bindLens(frame) {
-    lensCells = null;
-    lensSeq += 1;
-    const seq = lensSeq;
-    if (!frame || mode !== "watch") return;
-    if (decode.frameIsFate(frame)) return;
-    if (frame.unminted || frame.source === "render") return;
-    const traits = table.row(frame.id);
-    if (!traits || traits[4] !== SIGHT_3D) return;
-    slotOccupancy(traits, 4).then(function (cells) {
-      if (seq !== lensSeq || !lastFrame || lastFrame.id !== frame.id) return;
-      lensCells = cells && cells.length ? cells : null;
-    }).catch(function () {
-      if (seq !== lensSeq) return;
-      lensCells = null;
-    });
-  }
-
   function hasPlayerHtml(frame) {
     return !!(frame && frame.source === "uri" && !frame.unminted && frame.html);
   }
@@ -1545,7 +1374,6 @@
 
   function mountPlayerCage(frame) {
     stopFleeceBreath();
-    stopAnaglyph(true);
     clearStampLamp();
     stopPlayerCage();
     const html = frame && frame.html;
@@ -1612,7 +1440,6 @@
 
   function mountArt(frame) {
     stopFleeceBreath();
-    stopAnaglyph(true);
     clearStampLamp();
     stopPlayerCage();
     window.clearTimeout(revealTimer);
@@ -1689,7 +1516,6 @@
       if (frame.source !== "render") {
         scheduleStampLamp(svg);
         bindTwinProof(frame);
-        bindLens(frame);
         startFleeceBreath(frame);
       }
       syncArtView();
@@ -3138,9 +2964,8 @@
   pixel.addEventListener("pointermove", function (ev) {
     if (player.isPlaying() || filmPlaying || mode !== "watch") return;
     const twinHit = !!twinCellAt(ev);
-    const lensHit = !twinHit && !!lensCellAt(ev);
     setTwinHot(twinHit);
-    pixel.style.cursor = twinHit || lensHit ? "pointer" : "";
+    pixel.style.cursor = twinHit ? "pointer" : "";
   });
   pixel.addEventListener("pointerleave", function () {
     setTwinHot(false);
@@ -3197,10 +3022,6 @@
         startFilm(lastFrame.id);
         return;
       }
-      if (lensCellAt(ev)) {
-        ev.preventDefault();
-        toggleAnaglyph();
-      }
       return;
     }
     if (twinCellAt(ev)) {
@@ -3210,11 +3031,6 @@
         openTwin(twin);
         return;
       }
-    }
-    if (lensCellAt(ev)) {
-      ev.preventDefault();
-      toggleAnaglyph();
-      return;
     }
     if (filmDoorOf(lastFrame.id)) {
       ev.preventDefault();
