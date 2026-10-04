@@ -35,7 +35,7 @@ const PATH_SAFE = /^[Mhvz0-9\s-]+$/;
 
 const KNOWN_HTML_ONLY = { 17: "Petrified — HTML motion, still SVG on The Watch" };
 
-const TWIN_LOOK = [23, 174, 1];
+const TWIN_LOOK = [1];
 
 const RPCS = (process.env.RPC_URL || process.env.RPC_URLS || [
   "https://ethereum-rpc.publicnode.com",
