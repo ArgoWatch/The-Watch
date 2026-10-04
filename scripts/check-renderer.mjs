@@ -28,6 +28,10 @@ const KEEP_TAGS = {
   set: 1,
   animate: 1,
   animatetransform: 1,
+  clippath: 1,
+  defs: 1,
+  use: 1,
+  style: 1,
 };
 
 const PATH_PIECE = /M(-?\d+) (-?\d+)h(-?\d+)v(-?\d+)h(-?\d+)z/g;
@@ -564,9 +568,7 @@ const knownNotes = [];
 for (const p of plates) {
   if (KNOWN_HTML_ONLY[p.id] && p.htmlOnly) knownNotes.push("#" + p.id + "  " + KNOWN_HTML_ONLY[p.id]);
 }
-if (allDropped.length) {
-  knownNotes.push("Watch still drops clipPath/defs/use (Shades/Digital visor smoke) until the sanitizer keeps them");
-}
+
 if (rendererState === "NEW" && !need.length) {
   knownNotes.push("renderer address changed; pictures using squares / pixel-paths follow on their own");
 }
