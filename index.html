@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0c0a08" />
   <meta name="referrer" content="no-referrer" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'none'; connect-src 'self' https://cloudflare-eth.com https://ethereum.publicnode.com https://ethereum-rpc.publicnode.com https://1rpc.io https://rpc.mevblocker.io https://eth.drpc.org https://rpc.flashbots.net; base-uri 'none'; form-action 'none'; object-src 'none'" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'none'; connect-src 'self' https://cloudflare-eth.com https://ethereum.publicnode.com https://ethereum-rpc.publicnode.com https://1rpc.io https://rpc.mevblocker.io https://eth.drpc.org https://rpc.flashbots.net; frame-src blob:; base-uri 'none'; form-action 'none'; object-src 'none'" />
   <title>The Watch — unofficial Argonauts player</title>
   <meta name="description" content="Unofficial fan player for on-chain Argonauts. Art and copyright stay with ACK / Muse Facktory." />
-  <link rel="stylesheet" href="styles.css?v=95" />
+  <link rel="stylesheet" href="styles.css?v=96" />
 </head>
 <body>
   <div class="salon">
@@ -58,6 +58,10 @@
         <button type="button" id="btn-reset">Reset</button>
         <button type="button" id="btn-prev" aria-label="Previous">‹</button>
         <button type="button" id="btn-next" aria-label="Next">›</button>
+        <div class="view" role="group" aria-label="Picture">
+          <button type="button" class="view-btn is-on" id="btn-print" aria-pressed="true">Print</button>
+          <button type="button" class="view-btn" id="btn-player" aria-pressed="false">Player</button>
+        </div>
         <label class="id-label">
           <span>id</span>
           <input id="id-input" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="4" value="1" aria-label="Argonaut id" />
@@ -80,15 +84,15 @@
     </footer>
   </div>
 
-  <script src="lib/chain.js?v=95"></script>
-  <script src="lib/decode.js?v=95"></script>
-  <script src="lib/family.js?v=95"></script>
-  <script src="lib/paths.js?v=95"></script>
-  <script src="lib/crew.js?v=95"></script>
-  <script src="lib/playback.js?v=95"></script>
-  <script src="lib/explode.js?v=95"></script>
-  <script src="lib/draw.js?v=95"></script>
-  <script src="lib/sheet.js?v=95"></script>
-  <script src="app.js?v=95"></script>
+  <script src="lib/chain.js?v=96"></script>
+  <script src="lib/decode.js?v=96"></script>
+  <script src="lib/family.js?v=96"></script>
+  <script src="lib/paths.js?v=96"></script>
+  <script src="lib/crew.js?v=96"></script>
+  <script src="lib/playback.js?v=96"></script>
+  <script src="lib/explode.js?v=96"></script>
+  <script src="lib/draw.js?v=96"></script>
+  <script src="lib/sheet.js?v=96"></script>
+  <script src="app.js?v=96"></script>
 </body>
 </html>

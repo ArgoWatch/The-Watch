@@ -13,6 +13,8 @@
   const toggleBtn = document.getElementById("btn-toggle");
   const prevBtn = document.getElementById("btn-prev");
   const nextBtn = document.getElementById("btn-next");
+  const printBtn = document.getElementById("btn-print");
+  const playerBtn = document.getElementById("btn-player");
   const modeWatch = document.getElementById("mode-watch");
   const modeApart = document.getElementById("mode-apart");
   const modeDraw = document.getElementById("mode-draw");
@@ -96,6 +98,9 @@
   let twinPress = 0;
   let lensCells = null;
   let lensSeq = 0;
+  const CAGE_CSP = "default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
+  let artView = "print";
+  let playerBlob = "";
   let anaglyphOn = false;
   let anaglyphAt = 0;
   let anaglyphOffAt = undefined;
@@ -632,6 +637,7 @@
       crewBtn.setAttribute("aria-pressed", on ? "true" : "false");
     }
     syncCrewChrome();
+    syncArtView();
     if (mode !== "watch") {
       salon.classList.remove("paths-on");
       window.clearTimeout(pathTimer);
@@ -650,6 +656,8 @@
     mode = "watch";
     setModeButtons();
     syncStemClass();
+    if (lastFrame && artView === "player") mountArt(lastFrame);
+    else syncArtView();
   }
 
   let stampTimer = 0;
@@ -1514,10 +1522,99 @@
     });
   }
 
+  function hasPlayerHtml(frame) {
+    return !!(frame && frame.source === "uri" && !frame.unminted && frame.html);
+  }
+
+  function stopPlayerCage() {
+    if (playerBlob) {
+      try { URL.revokeObjectURL(playerBlob); } catch (_) {}
+      playerBlob = "";
+    }
+    salon.classList.remove("is-player");
+  }
+
+  function cageHtml(html) {
+    const meta = '<meta http-equiv="Content-Security-Policy" content="' + CAGE_CSP + '">';
+    const reset = "<style>html,body{margin:0;padding:0;overflow:hidden;background:#000;width:100%;height:100%}</style>";
+    const head = meta + reset;
+    if (/<head[\s>]/i.test(html)) return html.replace(/<head([^>]*)>/i, "<head$1>" + head);
+    if (/<html[\s>]/i.test(html)) return html.replace(/<html([^>]*)>/i, "<html$1><head>" + head + "</head>");
+    return "<!doctype html><head>" + head + "</head>" + html;
+  }
+
+  function mountPlayerCage(frame) {
+    stopFleeceBreath();
+    stopAnaglyph(true);
+    clearStampLamp();
+    stopPlayerCage();
+    const html = frame && frame.html;
+    if (!html) return false;
+    const blob = new Blob([cageHtml(html)], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    playerBlob = url;
+    const iframe = document.createElement("iframe");
+    iframe.className = "player-cage";
+    iframe.setAttribute("sandbox", "allow-scripts");
+    iframe.setAttribute("referrerpolicy", "no-referrer");
+    iframe.setAttribute("scrolling", "no");
+    iframe.setAttribute("title", "On-chain player");
+    iframe.width = 24;
+    iframe.height = 24;
+    iframe.src = url;
+    pixel.replaceChildren(iframe);
+    unmintedEl.hidden = true;
+    stage.classList.remove("is-empty");
+    salon.classList.add("is-player");
+    return true;
+  }
+
+  function syncArtView() {
+    const can = mode === "watch" && hasPlayerHtml(lastFrame);
+    if (printBtn) {
+      printBtn.classList.toggle("is-on", artView !== "player" || !can);
+      printBtn.setAttribute("aria-pressed", artView !== "player" || !can ? "true" : "false");
+    }
+    if (playerBtn) {
+      playerBtn.disabled = !can;
+      playerBtn.classList.toggle("is-on", artView === "player" && can);
+      playerBtn.setAttribute("aria-pressed", artView === "player" && can ? "true" : "false");
+    }
+    if (artView === "player" && !can) salon.classList.remove("is-player");
+  }
+
+  function setArtView(next) {
+    const want = next === "player" ? "player" : "print";
+    if (want === "player" && mode !== "watch") return;
+    if (want === "player" && lastFrame && !hasPlayerHtml(lastFrame)) {
+      const id = lastFrame.id;
+      loadArt(id, { fresh: true }).then(function (frame) {
+        if (!lastFrame || lastFrame.id !== id) return;
+        lastFrame.html = frame.html || "";
+        if (!hasPlayerHtml(lastFrame)) {
+          artView = "print";
+          syncArtView();
+          return;
+        }
+        artView = "player";
+        mountArt(lastFrame);
+        syncArtView();
+      }).catch(function () {
+        artView = "print";
+        syncArtView();
+      });
+      return;
+    }
+    artView = want;
+    if (lastFrame) mountArt(lastFrame);
+    syncArtView();
+  }
+
   function mountArt(frame) {
     stopFleeceBreath();
     stopAnaglyph(true);
     clearStampLamp();
+    stopPlayerCage();
     window.clearTimeout(revealTimer);
     revealTimer = 0;
     clearRevealWell();
@@ -1579,6 +1676,10 @@
       stage.classList.remove("is-empty");
       return;
     }
+    if (artView === "player" && mode === "watch" && hasPlayerHtml(frame) && mountPlayerCage(frame)) {
+      syncArtView();
+      return;
+    }
     if (!frame.svg) return;
     try {
       const svg = decode.sanitizeSvg(frame.svg);
@@ -1591,6 +1692,7 @@
         bindLens(frame);
         startFleeceBreath(frame);
       }
+      syncArtView();
     } catch (err) {
       status.textContent = err.message || "SVG failed";
     }
@@ -1631,6 +1733,7 @@
     salon.classList.add("draw-mode");
     syncStemClass();
     fitPrint();
+    stopPlayerCage();
     pixel.replaceChildren(plotter.canvas);
     unmintedEl.hidden = true;
     plotter.load(lastFrame.unminted ? "" : lastFrame.svg || "");
@@ -1716,6 +1819,7 @@
     syncToggle();
     mode = "apart";
     salon.classList.add("take-apart");
+    if (lastFrame) mountArt(lastFrame);
     setModeButtons();
     syncStemClass();
     fitPrint();
@@ -1851,7 +1955,7 @@
 
     mountArt(frame);
     syncStemClass();
-    if (mode === "watch" && !filmPlaying) bindTwinProof(frame);
+    if (mode === "watch" && artView !== "player" && !filmPlaying) bindTwinProof(frame);
   }
 
   const player = playback.createPlayback({
@@ -2611,6 +2715,16 @@
     }).catch(function () {});
   }
 
+  if (printBtn) {
+    printBtn.addEventListener("click", function () {
+      setArtView("print");
+    });
+  }
+  if (playerBtn) {
+    playerBtn.addEventListener("click", function () {
+      setArtView("player");
+    });
+  }
   toggleBtn.addEventListener("click", function () {
     releaseIdBox();
     if (mode === "draw" || mode === "apart") {

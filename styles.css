@@ -702,12 +702,19 @@ a.plate-harbor:hover {
 
 .pixel img,
 .pixel canvas.fleece-breath,
-.pixel canvas.anaglyph-split {
+.pixel canvas.anaglyph-split,
+.pixel iframe.player-cage {
   display: block;
   width: 24px;
   height: 24px;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
+}
+
+.pixel iframe.player-cage {
+  border: 0;
+  overflow: hidden;
+  background: #000;
 }
 
 .pixel canvas.fleece-breath,
@@ -970,14 +977,40 @@ a.caption-id:focus {
 #btn-toggle,
 #btn-prev,
 #btn-next,
-.speed-btn {
+.speed-btn,
+.view-btn {
   text-transform: none;
   letter-spacing: 0;
   font-size: 0.82rem;
   min-width: 0.9rem;
 }
 
-.salon.chrome-on .controls {
+.view {
+  display: flex;
+  gap: 0.55rem;
+  margin-left: 0.15rem;
+}
+
+.view-btn {
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.view-btn:disabled {
+  opacity: 0.35;
+  color: var(--muted);
+  cursor: default;
+  pointer-events: none;
+}
+
+.salon.take-apart .view,
+.salon.draw-mode .view {
+  display: none;
+}
+
+.salon.chrome-on .controls,
+.salon.is-player .controls {
   opacity: 1;
   pointer-events: auto;
 }
