@@ -1,7 +1,7 @@
 {
-  "renderer": "0x540602b7c5f909e3fb439774770538c31e4f4aaf",
+  "renderer": "0x5c6dc50556a7a3ffbbe5e57df0950a39f238761e",
   "base": "0xa135039c2526cfaba13f0c99deb0af239c30a110",
-  "fetchedAt": "2026-10-03T04:05:28.505Z",
+  "fetchedAt": "2026-10-08T23:48:50.563Z",
   "canaries": [
     {
       "id": 1,
@@ -60,11 +60,7 @@
       "fixed": true,
       "kind": "svg",
       "htmlKind": "html",
-      "droppedTag": [
-        "clippath",
-        "defs",
-        "use"
-      ],
+      "droppedTag": [],
       "droppedPathCount": 0,
       "gold": 0,
       "smil": true,
@@ -87,15 +83,39 @@
       "error": ""
     },
     {
+      "id": 24,
+      "fixed": true,
+      "kind": "svg",
+      "htmlKind": "html",
+      "droppedTag": [],
+      "droppedPathCount": 0,
+      "gold": 0,
+      "smil": true,
+      "htmlOnly": false,
+      "htmlFlags": {
+        "fleece": false,
+        "radio": true,
+        "red": true,
+        "gf": true,
+        "canvas": true
+      },
+      "attrs": {
+        "Palette": "Storm",
+        "Bones": "Bone",
+        "Relic": "Gold",
+        "Sight": "Dior",
+        "Artifact": "Woodpipe",
+        "Crown": "Aegean Blue Beanie",
+        "Print": "Unclaimed"
+      },
+      "error": ""
+    },
+    {
       "id": 68,
       "fixed": true,
       "kind": "svg",
       "htmlKind": "html",
-      "droppedTag": [
-        "clippath",
-        "defs",
-        "use"
-      ],
+      "droppedTag": [],
       "droppedPathCount": 0,
       "gold": 0,
       "smil": true,
@@ -148,11 +168,7 @@
       "fixed": true,
       "kind": "svg",
       "htmlKind": "html",
-      "droppedTag": [
-        "clippath",
-        "defs",
-        "use"
-      ],
+      "droppedTag": [],
       "droppedPathCount": 0,
       "gold": 0,
       "smil": true,
@@ -171,6 +187,32 @@
         "Sight": "Digital",
         "Artifact": "Woodpipe",
         "Crown": "Aegean Blue Beanie",
+        "Print": "Unclaimed"
+      },
+      "error": ""
+    },
+    {
+      "id": 3025,
+      "fixed": false,
+      "kind": "svg",
+      "htmlKind": "html",
+      "droppedTag": [],
+      "droppedPathCount": 0,
+      "gold": 0,
+      "smil": true,
+      "htmlOnly": false,
+      "htmlFlags": {
+        "fleece": false,
+        "radio": true,
+        "red": true,
+        "gf": true,
+        "canvas": true
+      },
+      "attrs": {
+        "Palette": "Bubblegum",
+        "Bones": "Coral",
+        "Artifact": "Woodpipe",
+        "Crown": "Bandana",
         "Print": "Unclaimed"
       },
       "error": ""
@@ -197,64 +239,6 @@
         "Bones": "Gold",
         "Crown": "Golden Fleece",
         "Print": "Claimed"
-      },
-      "error": ""
-    },
-    {
-      "id": 5878,
-      "fixed": false,
-      "kind": "svg",
-      "htmlKind": "html",
-      "droppedTag": [
-        "clippath",
-        "defs",
-        "use"
-      ],
-      "droppedPathCount": 0,
-      "gold": 0,
-      "smil": true,
-      "htmlOnly": false,
-      "htmlFlags": {
-        "fleece": false,
-        "radio": true,
-        "red": true,
-        "gf": true,
-        "canvas": true
-      },
-      "attrs": {
-        "Palette": "Offwhite",
-        "Bones": "Prehistoric",
-        "Sight": "Louis Vuitton",
-        "Artifact": "Woodpipe",
-        "Crown": "Bandana",
-        "Print": "Unclaimed"
-      },
-      "error": ""
-    },
-    {
-      "id": 6790,
-      "fixed": false,
-      "kind": "svg",
-      "htmlKind": "html",
-      "droppedTag": [],
-      "droppedPathCount": 0,
-      "gold": 0,
-      "smil": true,
-      "htmlOnly": false,
-      "htmlFlags": {
-        "fleece": false,
-        "radio": true,
-        "red": true,
-        "gf": true,
-        "canvas": true
-      },
-      "attrs": {
-        "Palette": "Sky",
-        "Bones": "Prehistoric",
-        "Relic": "Gold",
-        "Sight": "Gucci",
-        "Crown": "Purphat",
-        "Print": "Unclaimed"
       },
       "error": ""
     },
@@ -291,11 +275,7 @@
       "fixed": true,
       "kind": "svg",
       "htmlKind": "html",
-      "droppedTag": [
-        "clippath",
-        "defs",
-        "use"
-      ],
+      "droppedTag": [],
       "droppedPathCount": 0,
       "gold": 0,
       "smil": true,
@@ -313,6 +293,33 @@
         "Sight": "Digital",
         "Artifact": "Woodpipe",
         "Crown": "Aegean Blue Beanie",
+        "Print": "Unclaimed"
+      },
+      "error": ""
+    },
+    {
+      "id": 7528,
+      "fixed": false,
+      "kind": "svg",
+      "htmlKind": "html",
+      "droppedTag": [],
+      "droppedPathCount": 0,
+      "gold": 0,
+      "smil": true,
+      "htmlOnly": false,
+      "htmlFlags": {
+        "fleece": false,
+        "radio": true,
+        "red": true,
+        "gf": true,
+        "canvas": true
+      },
+      "attrs": {
+        "Palette": "Punkblue",
+        "Bones": "Bone",
+        "Relic": "Gold",
+        "Sight": "Versace",
+        "Artifact": "Woodpipe",
         "Print": "Unclaimed"
       },
       "error": ""
@@ -368,33 +375,6 @@
       "error": ""
     },
     {
-      "id": 8294,
-      "fixed": false,
-      "kind": "svg",
-      "htmlKind": "html",
-      "droppedTag": [],
-      "droppedPathCount": 0,
-      "gold": 0,
-      "smil": true,
-      "htmlOnly": false,
-      "htmlFlags": {
-        "fleece": false,
-        "radio": true,
-        "red": true,
-        "gf": true,
-        "canvas": true
-      },
-      "attrs": {
-        "Palette": "Bubblegum",
-        "Bones": "Bone",
-        "Relic": "Gold",
-        "Sight": "Shades",
-        "Crown": "Oarsman's Band",
-        "Print": "Unclaimed"
-      },
-      "error": ""
-    },
-    {
       "id": 8393,
       "fixed": true,
       "kind": "svg",
@@ -443,13 +423,37 @@
         "Print": "Unclaimed"
       },
       "error": ""
+    },
+    {
+      "id": 9882,
+      "fixed": false,
+      "kind": "svg",
+      "htmlKind": "html",
+      "droppedTag": [],
+      "droppedPathCount": 0,
+      "gold": 0,
+      "smil": true,
+      "htmlOnly": false,
+      "htmlFlags": {
+        "fleece": false,
+        "radio": true,
+        "red": true,
+        "gf": true,
+        "canvas": true
+      },
+      "attrs": {
+        "Palette": "Punkblue",
+        "Bones": "Prehistoric",
+        "Relic": "Gold",
+        "Sight": "Glasses",
+        "Artifact": "Woodpipe",
+        "Crown": "Oarsman's Band",
+        "Print": "Unclaimed"
+      },
+      "error": ""
     }
   ],
-  "droppedTagTypes": [
-    "clippath",
-    "defs",
-    "use"
-  ],
+  "droppedTagTypes": [],
   "htmlNames": [
     "A.alien",
     "A.alwaysOn",
@@ -515,6 +519,7 @@
     "A.smoke",
     "A.smokeRGB",
     "A.smokeSrc",
+    "A.storm",
     "A.sugg",
     "A.sw",
     "A.sx0",
@@ -604,6 +609,7 @@
     "var FOLDER",
     "var FONT3",
     "var GROUPS",
+    "var H",
     "var ICON",
     "var JEWELS",
     "var L",
@@ -619,6 +625,7 @@
     "var PHRASES",
     "var PHRASE_GROUPS",
     "var R",
+    "var RECENT",
     "var RED",
     "var RHYTHM",
     "var RING",
@@ -626,7 +633,9 @@
     "var S",
     "var SHOW_LEN",
     "var SPR",
+    "var SPRITES",
     "var STR",
+    "var T",
     "var TABLE",
     "var TINT",
     "var VAPE",
@@ -641,6 +650,6 @@
     "var W2",
     "var XCOPY_MOVES"
   ],
-  "traitSample": 43,
+  "traitSample": 44,
   "traitDrift": 0
 }

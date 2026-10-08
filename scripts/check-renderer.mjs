@@ -269,6 +269,7 @@ function pickCanaries(bin) {
   add(fixed, firstId(bin, 6, 6));
   add(fixed, firstId(bin, 4, 3));
   add(fixed, firstId(bin, 0, 17));
+  add(fixed, firstId(bin, 0, 33));
   const bones8393 = bin[(8393 - 1) * SLOTS + 1];
   add(fixed, firstId(bin, 1, bones8393));
   const extra = new Set();
