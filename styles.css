@@ -1000,7 +1000,8 @@ a.caption-id:focus {
 }
 
 .view {
-  display: contents;
+  display: flex;
+  gap: 0.55rem;
 }
 
 .view-btn {
