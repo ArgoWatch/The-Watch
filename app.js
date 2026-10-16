@@ -2089,7 +2089,7 @@
         well.classList.remove("is-wait");
         if (!frame || !frame.svg) return;
         try {
-          well.replaceChildren(decode.sanitizeSvg(frame.svg));
+          well.replaceChildren(decode.sanitizeSvg(frame.svg, { still: true }));
         } catch (_) {}
       }).catch(function () {
         if (cell.isConnected) well.classList.remove("is-wait");
