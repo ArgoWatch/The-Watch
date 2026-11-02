@@ -960,6 +960,36 @@ a.caption-id:focus {
   color: var(--muted);
 }
 
+.status.is-hold {
+  cursor: pointer;
+}
+
+.status-full {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .status.is-hold:hover .status-short {
+    display: none;
+  }
+  .status.is-hold:hover .status-full {
+    display: inline;
+  }
+}
+
+.status.is-hold.is-open .status-short {
+  display: none;
+}
+
+.status.is-hold.is-open .status-full {
+  display: inline;
+}
+
+.status.is-hold.is-open.is-fade .status-full {
+  opacity: 0;
+  transition: opacity 500ms ease;
+}
+
 .controls {
   display: flex;
   flex-wrap: wrap;

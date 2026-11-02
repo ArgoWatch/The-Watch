@@ -118,6 +118,35 @@
   const FILM_CLICK_GRACE_MS = 800;
   const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const HOLD_LINE = "holding print";
+  const HOLD_NOTE = "Live renderer currently has no picture. This is the last print.";
+  let holdFadeTimer = 0;
+
+  function writeStatus(text, opts) {
+    const hold = !!(opts && opts.hold);
+    window.clearTimeout(holdFadeTimer);
+    holdFadeTimer = 0;
+    status.classList.remove("is-open", "is-fade");
+    if (hold) {
+      status.classList.add("is-hold");
+      const short = document.createElement("span");
+      short.className = "status-short";
+      short.textContent = HOLD_LINE;
+      const full = document.createElement("span");
+      full.className = "status-full";
+      full.textContent = HOLD_NOTE;
+      status.replaceChildren(short, full);
+      status.setAttribute("role", "button");
+      status.tabIndex = 0;
+      status.setAttribute("aria-label", HOLD_NOTE);
+      return;
+    }
+    status.classList.remove("is-hold");
+    status.removeAttribute("tabindex");
+    status.setAttribute("role", "status");
+    status.removeAttribute("aria-label");
+    status.textContent = text || "";
+  }
 
   function pad4(n) {
     return String(n).padStart(4, "0");
@@ -1448,7 +1477,7 @@
     if (!frame) return;
     if (frame.quiet && !frame.svg) {
       if (!pixel.querySelector("svg, canvas, img")) {
-        status.textContent = "waiting on renderer";
+        writeStatus("waiting on renderer");
       }
       return;
     }
@@ -1763,7 +1792,8 @@
     markStripCurrent();
     syncColophon(frame.renderer);
     if (frame.quiet) {
-      status.textContent = frame.svg || frame.imageUri ? "holding print" : "waiting on renderer";
+      if (frame.svg || frame.imageUri) writeStatus("", { hold: true });
+      else writeStatus("waiting on renderer");
     }
     if (mode === "draw") {
       plotter.load(frame.unminted ? "" : frame.svg || "");
@@ -1824,7 +1854,7 @@
     onStatus: function (text) {
       if (table.stale) return;
       if (lastFrame && lastFrame.quiet && !text) return;
-      status.textContent = text;
+      writeStatus(text);
     },
     onLap: function () {
       if (table.stale) return;
@@ -2968,6 +2998,33 @@
           btn.classList.remove("is-open", "is-fade");
         }, 500);
       }, 3000);
+    });
+  })();
+
+  (function () {
+    function openHold() {
+      if (!status.classList.contains("is-hold")) return;
+      status.classList.remove("is-fade");
+      status.classList.add("is-open");
+      window.clearTimeout(holdFadeTimer);
+      holdFadeTimer = window.setTimeout(function () {
+        status.classList.add("is-fade");
+        holdFadeTimer = window.setTimeout(function () {
+          status.classList.remove("is-open", "is-fade");
+        }, 500);
+      }, 4000);
+    }
+    status.addEventListener("click", function (ev) {
+      if (!status.classList.contains("is-hold")) return;
+      ev.preventDefault();
+      if (finePointer.matches) return;
+      openHold();
+    });
+    status.addEventListener("keydown", function (ev) {
+      if (!status.classList.contains("is-hold")) return;
+      if (ev.key !== "Enter" && ev.key !== " ") return;
+      ev.preventDefault();
+      openHold();
     });
   })();
 
