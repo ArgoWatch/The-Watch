@@ -1446,6 +1446,12 @@
     revealTimer = 0;
     clearRevealWell();
     if (!frame) return;
+    if (frame.quiet && !frame.svg) {
+      if (!pixel.querySelector("svg, canvas, img")) {
+        status.textContent = "waiting on renderer";
+      }
+      return;
+    }
     if (frame.unminted && !frame.svg) {
       pixel.replaceChildren();
       unmintedEl.hidden = false;
@@ -1756,6 +1762,9 @@
     syncUrl(frame.id);
     markStripCurrent();
     syncColophon(frame.renderer);
+    if (frame.quiet) {
+      status.textContent = frame.svg || frame.imageUri ? "holding print" : "waiting on renderer";
+    }
     if (mode === "draw") {
       plotter.load(frame.unminted ? "" : frame.svg || "");
       plotter.play();
@@ -1814,6 +1823,7 @@
     onFrame: paint,
     onStatus: function (text) {
       if (table.stale) return;
+      if (lastFrame && lastFrame.quiet && !text) return;
       status.textContent = text;
     },
     onLap: function () {
