@@ -17,7 +17,7 @@ const RENDERER = "8ada6b0f";
 const BASE = "5001f3b5";
 const SLOTS = 7;
 const LAST_ID = 9999;
-const GAS = "0x1c9c380";
+const GAS = "0x8f0d180"; // 150M — Coral / MuseGreen tokenURI exceeds 80M on some nodes
 const UA = "the-watch-renderer-check/1";
 
 const KEEP_TAGS = {
@@ -32,16 +32,24 @@ const KEEP_TAGS = {
   defs: 1,
   use: 1,
   style: 1,
+  lineargradient: 1,
+  stop: 1,
+  mask: 1,
 };
 
-const PATH_PIECE = /M(-?\d+) (-?\d+)h(-?\d+)v(-?\d+)h(-?\d+)z/g;
+const PATH_PIECE = /M(-?\d+) (-?\d+)h(-?\d+)v(-?\d+)h(-?\d+)z?/g;
+const ARC_PATH = /^M-?\d+(?:\.\d+)?[,\s]+-?\d+(?:\.\d+)?(?:A-?\d+(?:\.\d+)?[,\s]+-?\d+(?:\.\d+)?[,\s]+-?\d+(?:\.\d+)?[,\s]+[01][,\s]+[01][,\s]+-?\d+(?:\.\d+)?[,\s]+-?\d+(?:\.\d+)?)+$/;
 const PATH_SAFE = /^[Mhvz0-9\s-]+$/;
 
-const KNOWN_HTML_ONLY = { 17: "Petrified — HTML motion, still SVG on The Watch" };
+const KNOWN_HTML_ONLY = {
+  17: "Petrified — HTML motion, still SVG on The Watch",
+  5266: "Crown of the 9 Muses — HTML motion, still SVG on The Watch (fleece hidden)",
+};
 
 const TWIN_LOOK = [1];
 
 const RPCS = (process.env.RPC_URL || process.env.RPC_URLS || [
+  "https://rpc.mevblocker.io",
   "https://ethereum-rpc.publicnode.com",
   "https://eth.drpc.org",
   "https://rpc.flashbots.net",
@@ -95,7 +103,7 @@ function decodeAbiString(hex) {
   };
   const offset = word64(0);
   const length = word64(offset);
-  if (length > 524288) throw new Error("ABI string too large");
+  if (length > 1048576) throw new Error("ABI string too large");
   const start = offset + 32;
   if (start + length > buf.length) throw new Error("ABI string truncated");
   return buf.slice(start, start + length).toString("utf8");
@@ -209,7 +217,7 @@ function droppedPaths(svg) {
       bad.push("(no d)");
       continue;
     }
-    if (!pixelRectsFromD(d[1])) bad.push(d[1].slice(0, 48));
+    if (!pixelRectsFromD(d[1]) && !ARC_PATH.test(d[1])) bad.push(d[1].slice(0, 48));
   }
   return bad;
 }
@@ -260,7 +268,7 @@ function firstId(bin, slot, value) {
 
 function pickCanaries(bin) {
   const fixed = new Set([
-    1, 17, 23, 174, 228, 5266, 7135, 7481, 7920, 8292, 8393, 9067,
+    1, 6, 17, 23, 93, 128, 174, 228, 824, 3482, 5266, 7135, 7481, 7920, 8292, 8393, 9067,
   ]);
   const add = (set, id) => {
     if (Number.isInteger(id) && id >= 1 && id <= LAST_ID) set.add(id);
@@ -328,7 +336,7 @@ function parseMeta(uri) {
     if (/^https?:/i.test(au)) htmlKind = "https";
     else if (au.indexOf("data:text/html") === 0) {
       const decoded = decodeDataUri(au);
-      html = decoded && decoded.text ? decoded.text.slice(0, 65536) : "";
+      html = decoded && decoded.text ? decoded.text.slice(0, 524288) : "";
       htmlKind = html ? "html" : "empty";
     } else htmlKind = "other";
   }
@@ -559,7 +567,7 @@ for (const p of plates) {
 if (newTagTypes.length) {
   need.push("new dropped SVG tag types: <" + newTagTypes.join("> <") + ">");
 }
-if (fleece && !fleece.error && fleece.gold < 8) {
+if (fleece && !fleece.error && fleece.gold < 8 && !KNOWN_HTML_ONLY[fleece.id]) {
   need.push("#" + fleece.id + " Fleece gold cells missing — overlay would no-op");
 }
 if (newHtml.length) {
